@@ -750,3 +750,130 @@ body {
     color: #ffd700;
     font-weight: bold;
 }
+
+/* ========== 钢铁侠模式样式 ========== */
+
+/* 钢铁侠模式手势状态 */
+#gesture-status.iron-man-mode {
+    border-color: #00d4ff;
+    background: rgba(0, 150, 255, 0.2);
+}
+
+#gesture-status.iron-man-mode #gesture-text {
+    color: #00d4ff;
+}
+
+#gesture-status.iron-man-mode.active {
+    border-color: #00ffff;
+    background: rgba(0, 255, 255, 0.3);
+    box-shadow: 0 0 20px rgba(0, 212, 255, 0.5);
+}
+
+#gesture-status.iron-man-mode.active #gesture-text {
+    color: #00ffff;
+}
+
+/* 激光发射特效 */
+.laser-shoot-effect {
+    position: absolute;
+    width: 60px;
+    height: 60px;
+    transform: translate(-50%, -50%);
+    pointer-events: none;
+    z-index: 100;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(0, 212, 255, 0.8) 0%, rgba(0, 150, 255, 0.4) 50%, transparent 70%);
+    animation: laserShoot 0.3s ease-out forwards;
+}
+
+@keyframes laserShoot {
+    0% {
+        transform: translate(-50%, -50%) scale(0.3);
+        opacity: 1;
+    }
+    100% {
+        transform: translate(-50%, -50%) scale(1.5);
+        opacity: 0;
+    }
+}
+
+/* 激光击中特效 */
+.laser-hit-effect {
+    position: absolute;
+    transform: translate(-50%, -50%);
+    font-size: 50px;
+    pointer-events: none;
+    z-index: 100;
+    animation: laserHit 0.4s ease-out forwards;
+    filter: hue-rotate(180deg) saturate(2);
+}
+
+@keyframes laserHit {
+    0% {
+        transform: translate(-50%, -50%) scale(0.5);
+        opacity: 1;
+    }
+    50% {
+        transform: translate(-50%, -50%) scale(1.5);
+        opacity: 1;
+    }
+    100% {
+        transform: translate(-50%, -50%) scale(2);
+        opacity: 0;
+    }
+}
+
+/* 模式切换特效 */
+.mode-switch-effect {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    z-index: 1000;
+    pointer-events: none;
+    animation: modeSwitchIn 0.3s ease-out, modeSwitchOut 0.5s ease-in 1s forwards;
+}
+
+.mode-text {
+    font-size: 3rem;
+    font-weight: bold;
+    padding: 20px 50px;
+    border-radius: 20px;
+    text-shadow: 0 0 20px currentColor;
+}
+
+.mode-text.iron-man {
+    color: #00d4ff;
+    background: rgba(0, 100, 200, 0.3);
+    border: 3px solid #00d4ff;
+    box-shadow: 0 0 40px rgba(0, 212, 255, 0.5), inset 0 0 30px rgba(0, 212, 255, 0.2);
+}
+
+.mode-text.spider-man {
+    color: #e63946;
+    background: rgba(200, 50, 50, 0.3);
+    border: 3px solid #e63946;
+    box-shadow: 0 0 40px rgba(230, 57, 70, 0.5), inset 0 0 30px rgba(230, 57, 70, 0.2);
+}
+
+@keyframes modeSwitchIn {
+    0% {
+        transform: translate(-50%, -50%) scale(0.3);
+        opacity: 0;
+    }
+    100% {
+        transform: translate(-50%, -50%) scale(1);
+        opacity: 1;
+    }
+}
+
+@keyframes modeSwitchOut {
+    0% {
+        transform: translate(-50%, -50%) scale(1);
+        opacity: 1;
+    }
+    100% {
+        transform: translate(-50%, -50%) scale(1.2);
+        opacity: 0;
+    }
+}

@@ -8,7 +8,13 @@ const CONFIG = {
     maxWebEffects: 5,        // 蛛蛛网击中范围
     baseScore: 100,
     comboMultiplier: 1.5,
-    comboTimeout: 2000
+    comboTimeout: 2000,
+    // 钢铁侠模式配置
+    laserSpeed: 15,          // 激光束速度
+    laserLength: 80,         // 激光束长度
+    laserWidth: 6,           // 激光束宽度
+    maxLasers: 20,           // 最大激光束数量
+    modeSwitchCooldown: 1000 // 模式切换冷却时间(ms)
 };
 
 // ========== 关卡配置 ==========
@@ -42,10 +48,11 @@ const gameState = {
     lastHitTime: 0,
     monsters: [],
     webEffects: [],
+    lasers: [],              // 激光束数组
     // 双手状态
     hands: [
-        { landmarks: null, isShootGesture: false, palmCenter: null },
-        { landmarks: null, isShootGesture: false, palmCenter: null }
+        { landmarks: null, isShootGesture: false, palmCenter: null, isFist: false, isPalm: false, palmDirection: null },
+        { landmarks: null, isShootGesture: false, palmCenter: null, isFist: false, isPalm: false, palmDirection: null }
     ],
     // 关卡系统
     currentLevel: 1,
@@ -53,7 +60,10 @@ const gameState = {
     stars: 0,
     gameOverReason: '', // 'time' 或 'bomb'
     // 解锁状态
-    isUnlocked: false
+    isUnlocked: false,
+    // 钢铁侠模式
+    isIronManMode: false,
+    lastModeSwitchTime: 0
 };
 
 // ========== DOM 元素 ==========
@@ -368,7 +378,7 @@ function onHandResults(results) {
     lastHandUpdateTime = Date.now();
     
     try {
-        // 节流绘制（但不节流手势状态更新，避免错过“松开手势”的那一帧）
+        // 节流绘制（但不节流手势状态更新，避免错过"松开手势"的那一帧）
         const now = Date.now();
         const shouldDraw = now - lastProcessTime >= PROCESS_INTERVAL;
         if (shouldDraw) {
@@ -382,9 +392,13 @@ function onHandResults(results) {
             gameState.hands[i].landmarks = null;
             gameState.hands[i].palmCenter = null;
             gameState.hands[i].isShootGesture = false;
+            gameState.hands[i].isFist = false;
+            gameState.hands[i].isPalm = false;
+            gameState.hands[i].palmDirection = null;
         }
     
     let anyGesture = false;
+    let bothFists = false;
     
     if (results.multiHandLandmarks && results.multiHandLandmarks.length > 0) {
         // 处理每只检测到的手
@@ -393,32 +407,58 @@ function onHandResults(results) {
             const handState = gameState.hands[i];
             
             if (shouldDraw) {
-                drawHandLandmarks(landmarks);
+                drawHandLandmarks(landmarks, gameState.isIronManMode);
             }
             
             // 获取手腕位置
             const wristPos = getWristPosition(landmarks);
             
-            // 检测发射手势
+            // 检测各种手势
             const isShootGesture = detectShootGesture(landmarks);
+            const isFist = detectFistGesture(landmarks);
+            const isPalm = detectPalmGesture(landmarks);
+            const palmDirection = isPalm ? getPalmDirection(landmarks) : null;
             
             handState.landmarks = landmarks;
-            
-            // 单次触发：只在手势从无到有时发射，全局冷却（谁先触发谁发射）
-            const now = Date.now();
-            if (isShootGesture && !handState.isShootGesture && gameState.isPlaying && now - lastGlobalShootTime > SHOOT_COOLDOWN) {
-                shootWebAtPosition(wristPos.x, wristPos.y);
-                lastGlobalShootTime = now;
-            }
-            
             handState.palmCenter = wristPos;
-            handState.isShootGesture = isShootGesture;
+            handState.isFist = isFist;
+            handState.isPalm = isPalm;
+            handState.palmDirection = palmDirection;
             
-            if (isShootGesture) anyGesture = true;
+            // 根据当前模式处理不同的发射逻辑
+            if (gameState.isIronManMode) {
+                // 钢铁侠模式：手掌张开发射激光
+                if (isPalm && !handState.isShootGesture && gameState.isPlaying && now - lastGlobalShootTime > SHOOT_COOLDOWN) {
+                    shootLaser(palmDirection);
+                    lastGlobalShootTime = now;
+                }
+                handState.isShootGesture = isPalm;
+                if (isPalm) anyGesture = true;
+            } else {
+                // 蜘蛛侠模式：蜘蛛侠手势发射蛛网
+                if (isShootGesture && !handState.isShootGesture && gameState.isPlaying && now - lastGlobalShootTime > SHOOT_COOLDOWN) {
+                    shootWebAtPosition(wristPos.x, wristPos.y);
+                    lastGlobalShootTime = now;
+                }
+                handState.isShootGesture = isShootGesture;
+                if (isShootGesture) anyGesture = true;
+            }
+        }
+        
+        // 检测双拳手势切换模式
+        if (results.multiHandLandmarks.length >= 2) {
+            bothFists = gameState.hands[0].isFist && gameState.hands[1].isFist;
+            
+            if (bothFists && now - gameState.lastModeSwitchTime > CONFIG.modeSwitchCooldown) {
+                gameState.isIronManMode = !gameState.isIronManMode;
+                gameState.lastModeSwitchTime = now;
+                showModeSwitchEffect(gameState.isIronManMode);
+                console.log('模式切换:', gameState.isIronManMode ? '钢铁侠模式' : '蜘蛛侠模式');
+            }
         }
     }
     
-    updateGestureStatus(anyGesture);
+    updateGestureStatus(anyGesture, gameState.isIronManMode);
     } catch (err) {
         console.error('手势处理错误:', err);
     }
@@ -436,8 +476,9 @@ function getWristPosition(landmarks) {
 }
 
 
-function drawHandLandmarks(landmarks) {
-    handCtx.fillStyle = '#e63946';
+function drawHandLandmarks(landmarks, isIronManMode = false) {
+    // 钢铁侠模式使用蓝色，蜘蛛侠模式使用红色
+    handCtx.fillStyle = isIronManMode ? '#00d4ff' : '#e63946';
     handCtx.strokeStyle = '#ffffff';
     handCtx.lineWidth = 2;
     
@@ -461,7 +502,7 @@ function drawHandLandmarks(landmarks) {
         [5, 9], [9, 13], [13, 17]
     ];
     
-    handCtx.strokeStyle = 'rgba(255, 255, 255, 0.5)';
+    handCtx.strokeStyle = isIronManMode ? 'rgba(0, 212, 255, 0.5)' : 'rgba(255, 255, 255, 0.5)';
     connections.forEach(([start, end]) => {
         const startX = (1 - landmarks[start].x) * canvasWidth;
         const startY = landmarks[start].y * canvasHeight;
@@ -519,17 +560,108 @@ function detectShootGesture(landmarks) {
     return indexExtended && pinkyExtended && middleBent && ringBent && thumbOut;
 }
 
-function updateGestureStatus(isActive) {
-    if (isActive) {
-        elements.gestureStatus.classList.add('active');
-        elements.gestureStatus.classList.remove('targeting');
-        elements.gestureIcon.textContent = '🕸️';
-        elements.gestureText.textContent = '发射蛛蛛网！';
+// 检测拳头手势（用于切换钢铁侠模式）
+function detectFistGesture(landmarks) {
+    const wrist = landmarks[0];
+    const thumbTip = landmarks[4];
+    const indexTip = landmarks[8];
+    const middleTip = landmarks[12];
+    const ringTip = landmarks[16];
+    const pinkyTip = landmarks[20];
+    
+    const indexMcp = landmarks[5];
+    const middleMcp = landmarks[9];
+    const ringMcp = landmarks[13];
+    const pinkyMcp = landmarks[17];
+    
+    const dist = (p1, p2) => Math.sqrt((p1.x - p2.x) ** 2 + (p1.y - p2.y) ** 2);
+    
+    // 所有手指都弯曲（指尖靠近手腕）
+    const indexBent = dist(indexTip, wrist) < dist(indexMcp, wrist) * 1.2;
+    const middleBent = dist(middleTip, wrist) < dist(middleMcp, wrist) * 1.2;
+    const ringBent = dist(ringTip, wrist) < dist(ringMcp, wrist) * 1.2;
+    const pinkyBent = dist(pinkyTip, wrist) < dist(pinkyMcp, wrist) * 1.2;
+    
+    // 拇指也弯曲
+    const thumbBent = dist(thumbTip, wrist) < 0.15;
+    
+    return indexBent && middleBent && ringBent && pinkyBent;
+}
+
+// 检测手掌张开手势（用于钢铁侠模式发射激光）
+function detectPalmGesture(landmarks) {
+    const wrist = landmarks[0];
+    const thumbTip = landmarks[4];
+    const indexTip = landmarks[8];
+    const middleTip = landmarks[12];
+    const ringTip = landmarks[16];
+    const pinkyTip = landmarks[20];
+    
+    const indexPip = landmarks[6];
+    const middlePip = landmarks[10];
+    const ringPip = landmarks[14];
+    const pinkyPip = landmarks[18];
+    
+    const dist = (p1, p2) => Math.sqrt((p1.x - p2.x) ** 2 + (p1.y - p2.y) ** 2);
+    
+    // 所有手指都伸展
+    const indexExtended = dist(indexTip, wrist) > dist(indexPip, wrist) * 1.1;
+    const middleExtended = dist(middleTip, wrist) > dist(middlePip, wrist) * 1.1;
+    const ringExtended = dist(ringTip, wrist) > dist(ringPip, wrist) * 1.1;
+    const pinkyExtended = dist(pinkyTip, wrist) > dist(pinkyPip, wrist) * 1.1;
+    
+    return indexExtended && middleExtended && ringExtended && pinkyExtended;
+}
+
+// 获取手掌朝向方向（从手腕指向中指尖）
+function getPalmDirection(landmarks) {
+    const wrist = landmarks[0];
+    const middleTip = landmarks[12];
+    const middleMcp = landmarks[9];
+    
+    // 计算手掌中心
+    const palmCenterX = (1 - ((wrist.x + middleMcp.x) / 2)) * canvasWidth;
+    const palmCenterY = ((wrist.y + middleMcp.y) / 2) * canvasHeight;
+    
+    // 方向从手腕指向中指尖
+    const dx = (1 - middleTip.x) * canvasWidth - (1 - wrist.x) * canvasWidth;
+    const dy = middleTip.y * canvasHeight - wrist.y * canvasHeight;
+    const length = Math.sqrt(dx * dx + dy * dy);
+    
+    return {
+        x: palmCenterX,
+        y: palmCenterY,
+        dx: dx / length,
+        dy: dy / length,
+        angle: Math.atan2(dy, dx)
+    };
+}
+
+function updateGestureStatus(isActive, isIronManMode = false) {
+    if (isIronManMode) {
+        elements.gestureStatus.classList.add('iron-man-mode');
+        if (isActive) {
+            elements.gestureStatus.classList.add('active');
+            elements.gestureIcon.textContent = '💥';
+            elements.gestureText.textContent = '发射激光束！';
+        } else {
+            elements.gestureStatus.classList.remove('active');
+            elements.gestureIcon.textContent = '🦾';
+            elements.gestureText.textContent = '张开手掌发射';
+        }
     } else {
-        elements.gestureStatus.classList.remove('active');
-        elements.gestureStatus.classList.remove('targeting');
-        elements.gestureIcon.textContent = '🤟';
-        elements.gestureText.textContent = '做出蛛蛛侠手势';
+        elements.gestureStatus.classList.remove('iron-man-mode');
+        if (isActive) {
+            elements.gestureStatus.classList.add('active');
+            elements.gestureStatus.classList.remove('targeting');
+            elements.gestureIcon.textContent = '🕸️';
+            elements.gestureText.textContent = '发射蛛蛛网！';
+        } else {
+            elements.gestureStatus.classList.remove('active');
+            elements.gestureStatus.classList.remove('targeting');
+            elements.gestureIcon.textContent = '🤟';
+            elements.gestureText.textContent = '做出蛛蛛侠手势';
+        }
     }
 }
 
@@ -771,6 +903,167 @@ function showMissEffect(x, y) {
     setTimeout(() => popup.remove(), 600);
 }
 
+// ========== 钢铁侠激光束系统 ==========
+function shootLaser(palmDirection) {
+    if (!palmDirection) return;
+    
+    // 限制激光数量
+    if (gameState.lasers.length >= CONFIG.maxLasers) {
+        gameState.lasers.shift();
+    }
+    
+    const laser = {
+        id: Date.now() + Math.random(),
+        x: palmDirection.x,
+        y: palmDirection.y,
+        dx: palmDirection.dx,
+        dy: palmDirection.dy,
+        angle: palmDirection.angle,
+        speed: CONFIG.laserSpeed,
+        length: CONFIG.laserLength,
+        width: CONFIG.laserWidth,
+        startTime: Date.now(),
+        hit: false
+    };
+    
+    gameState.lasers.push(laser);
+    
+    // 创建发射特效
+    createLaserShootEffect(palmDirection.x, palmDirection.y);
+}
+
+// 激光发射特效
+function createLaserShootEffect(x, y) {
+    const effectDiv = document.createElement('div');
+    effectDiv.className = 'laser-shoot-effect';
+    effectDiv.style.left = `${x}px`;
+    effectDiv.style.top = `${y}px`;
+    document.body.appendChild(effectDiv);
+    setTimeout(() => effectDiv.remove(), 300);
+}
+
+// 更新激光束
+function updateLasers(deltaTime) {
+    const speedFactor = deltaTime * 60;
+    
+    for (let i = gameState.lasers.length - 1; i >= 0; i--) {
+        const laser = gameState.lasers[i];
+        
+        // 移动激光
+        laser.x += laser.dx * laser.speed * speedFactor;
+        laser.y += laser.dy * laser.speed * speedFactor;
+        
+        // 检测与怪物的碰撞
+        checkLaserCollision(laser, i);
+        
+        // 移出屏幕则删除
+        const outOfBounds = 
+            laser.x < -100 || laser.x > canvasWidth + 100 ||
+            laser.y < -100 || laser.y > canvasHeight + 100;
+        
+        if (outOfBounds || laser.hit) {
+            gameState.lasers.splice(i, 1);
+        }
+    }
+}
+
+// 检测激光与怪物碰撞
+function checkLaserCollision(laser, laserIndex) {
+    for (let i = 0; i < gameState.monsters.length; i++) {
+        const monster = gameState.monsters[i];
+        if (monster.hit) continue;
+        
+        // 计算激光束的头部位置
+        const laserHeadX = laser.x + laser.dx * laser.length / 2;
+        const laserHeadY = laser.y + laser.dy * laser.length / 2;
+        
+        // 简单的圆形碰撞检测
+        const dx = monster.x - laserHeadX;
+        const dy = monster.y - laserHeadY;
+        const distance = Math.sqrt(dx * dx + dy * dy);
+        
+        // 也检测激光中心点
+        const dx2 = monster.x - laser.x;
+        const dy2 = monster.y - laser.y;
+        const distance2 = Math.sqrt(dx2 * dx2 + dy2 * dy2);
+        
+        const hitRadius = monster.size / 2 + laser.width;
+        
+        if (distance < hitRadius || distance2 < hitRadius) {
+            laser.hit = true;
+            monster.hit = true;
+            
+            // 创建激光击中特效
+            createLaserHitEffect(monster.x, monster.y);
+            
+            // 处理怪物击中
+            hitMonster(monster, i);
+            break;
+        }
+    }
+}
+
+// 绘制激光束
+function drawLasers() {
+    gameState.lasers.forEach(laser => {
+        gameCtx.save();
+        gameCtx.translate(laser.x, laser.y);
+        gameCtx.rotate(laser.angle);
+        
+        // 绘制激光束光晕
+        const gradient = gameCtx.createLinearGradient(-laser.length / 2, 0, laser.length / 2, 0);
+        gradient.addColorStop(0, 'rgba(0, 150, 255, 0)');
+        gradient.addColorStop(0.3, 'rgba(0, 200, 255, 0.8)');
+        gradient.addColorStop(0.5, 'rgba(100, 220, 255, 1)');
+        gradient.addColorStop(0.7, 'rgba(0, 200, 255, 0.8)');
+        gradient.addColorStop(1, 'rgba(0, 150, 255, 0)');
+        
+        // 外层光晕
+        gameCtx.fillStyle = 'rgba(0, 150, 255, 0.3)';
+        gameCtx.beginPath();
+        gameCtx.ellipse(0, 0, laser.length / 2, laser.width * 2, 0, 0, Math.PI * 2);
+        gameCtx.fill();
+        
+        // 主光束
+        gameCtx.fillStyle = gradient;
+        gameCtx.beginPath();
+        gameCtx.ellipse(0, 0, laser.length / 2, laser.width, 0, 0, Math.PI * 2);
+        gameCtx.fill();
+        
+        // 核心亮线
+        gameCtx.strokeStyle = 'rgba(255, 255, 255, 0.9)';
+        gameCtx.lineWidth = 2;
+        gameCtx.beginPath();
+        gameCtx.moveTo(-laser.length / 2 + 10, 0);
+        gameCtx.lineTo(laser.length / 2 - 5, 0);
+        gameCtx.stroke();
+        
+        gameCtx.restore();
+    });
+}
+
+// 激光击中特效
+function createLaserHitEffect(x, y) {
+    const effectDiv = document.createElement('div');
+    effectDiv.className = 'laser-hit-effect';
+    effectDiv.style.left = `${x}px`;
+    effectDiv.style.top = `${y}px`;
+    effectDiv.innerHTML = '💥';
+    document.body.appendChild(effectDiv);
+    setTimeout(() => effectDiv.remove(), 400);
+}
+
+// 模式切换特效
+function showModeSwitchEffect(isIronManMode) {
+    const effectDiv = document.createElement('div');
+    effectDiv.className = 'mode-switch-effect';
+    effectDiv.innerHTML = isIronManMode 
+        ? '<div class="mode-text iron-man">🦾 钢铁侠模式</div>' 
+        : '<div class="mode-text spider-man">🕷️ 蜘蛛侠模式</div>';
+    document.body.appendChild(effectDiv);
+    setTimeout(() => effectDiv.remove(), 1500);
+}
+
 // ========== 怪物系统 ==========
 function spawnMonster() {
     if (!gameState.isPlaying) return;
@@ -984,6 +1277,9 @@ async function startGame() {
     gameState.combo = 0;
     gameState.monsters = [];
     gameState.webEffects = [];
+    gameState.lasers = [];
+    gameState.isIronManMode = false;
+    gameState.lastModeSwitchTime = 0;
     gameState.bombHits = 0;
     gameState.stars = 0;
     gameState.gameOverReason = '';
@@ -1030,9 +1326,11 @@ function startGameLoop() {
         
         updateMonsters(deltaTime);
         updateWebEffects();
+        updateLasers(deltaTime);
         
         drawMonsters();
         drawWebEffects();
+        drawLasers();
         
         gameLoopId = requestAnimationFrame(gameLoop);
     }
