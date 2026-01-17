@@ -237,6 +237,30 @@ body {
     50% { transform: translateX(-50%) scale(1.05); }
 }
 
+/* 蜘蛛网罩住动效 */
+.web-catch-effect {
+    position: absolute;
+    transform: translate(-50%, -50%);
+    pointer-events: none;
+    z-index: 100;
+    animation: webCatch 0.6s ease-out forwards;
+}
+
+@keyframes webCatch {
+    0% {
+        transform: translate(-50%, -50%) scale(0.2) rotate(0deg);
+        opacity: 0;
+    }
+    30% {
+        transform: translate(-50%, -50%) scale(1.2) rotate(45deg);
+        opacity: 1;
+    }
+    100% {
+        transform: translate(-50%, -50%) scale(1.5) rotate(90deg);
+        opacity: 0;
+    }
+}
+
 /* 结束界面 */
 #end-screen {
     background: rgba(0, 0, 0, 0.9);
