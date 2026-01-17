@@ -7,17 +7,25 @@
     <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-    <!-- 开始界面 -->
+    <!-- 开始界面 - 极简风格 -->
     <div id="start-screen" class="screen">
-        <div class="title-container">
-            <h1>🕷️ 蜘蛛侠捕怪大作战 🕸️</h1>
-            <p class="subtitle">使用蜘蛛侠经典手势发射蜘蛛丝，消灭怪物！</p>
-            <div class="gesture-hint">
-                <p>🤟 经典射丝手势</p>
-                <p class="gesture-desc">中指+无名指弯曲，拇指+食指+小指伸直</p>
+        <!-- 解锁前的界面 -->
+        <div id="unlock-view" class="unlock-view">
+            <h1 class="main-title">SPIDERX</h1>
+            <div class="unlock-hint">
+                <div class="gesture-demo">🤟</div>
+                <p class="unlock-text">做出蛛蛛侠手势解锁</p>
+                <p class="gesture-detail">中指+无名指弯曲，其他伸直</p>
             </div>
-            <button id="start-btn" class="btn-primary">开始游戏</button>
+            <div id="unlock-status" class="unlock-status">
+                <span class="status-dot"></span>
+                <span class="status-text">等待手势...</span>
+            </div>
         </div>
+        
+        <!-- 摄像头预览（用于手势检测） -->
+        <video id="unlock-video" class="unlock-video" autoplay playsinline></video>
+        <canvas id="unlock-canvas" class="unlock-canvas"></canvas>
     </div>
 
     <!-- 游戏界面 -->
@@ -40,6 +48,13 @@
             <div id="combo-display" class="hidden">
                 <span id="combo">x2</span>
             </div>
+            <div id="bomb-display">
+                <span class="bomb-label">生命</span>
+                <div class="bomb-hearts">
+                    <span class="bomb-heart">❤️</span>
+                    <span class="bomb-heart">❤️</span>
+                </div>
+            </div>
             <div id="time-display">
                 <span class="time-label">时间</span>
                 <span id="time">60</span>
@@ -53,19 +68,38 @@
         </div>
     </div>
 
-    <!-- 结束界面 -->
+    <!-- 结束界面 - 并行排版 -->
     <div id="end-screen" class="screen hidden">
-        <div class="end-container">
-            <h1>游戏结束</h1>
-            <div class="final-score">
-                <span class="label">最终得分</span>
-                <span id="final-score">0</span>
+        <div class="end-container-new">
+            <div id="game-over-reason" class="game-over-reason float-anim">时间到！</div>
+            <h1 class="end-title pulse-anim">游戏结束</h1>
+            
+            <div class="end-content">
+                <!-- 左侧：分数信息 -->
+                <div class="end-left">
+                    <div id="stars-display" class="stars-display float-anim">
+                        <span class="star empty">☆</span>
+                        <span class="star empty">☆</span>
+                        <span class="star empty">☆</span>
+                    </div>
+                    <div id="score-requirements" class="score-requirements"></div>
+                    <div class="final-score scale-anim">
+                        <span class="label">最终得分</span>
+                        <span id="final-score">0</span>
+                    </div>
+                    <div class="high-score float-anim-slow">
+                        <span class="label">最高记录</span>
+                        <span id="high-score">0</span>
+                    </div>
+                </div>
+                
+                <!-- 右侧：排行榜 -->
+                <div class="end-right">
+                    <div id="leaderboard" class="leaderboard slide-anim"></div>
+                </div>
             </div>
-            <div class="high-score">
-                <span class="label">最高记录</span>
-                <span id="high-score">0</span>
-            </div>
-            <button id="restart-btn" class="btn-primary">再来一局</button>
+            
+            <button id="restart-btn" class="btn-primary pulse-anim">再来一局</button>
         </div>
     </div>
 

@@ -3,13 +3,34 @@ const CONFIG = {
     gameDuration: 60,
     monsterSpawnInterval: 2000,
     monsterSpeed: 1.0,
-    webRadius: 50,
+    webRadius: 52,
     maxMonsters: 15,
     maxWebEffects: 5,        // 蛛蛛网击中范围
     baseScore: 100,
     comboMultiplier: 1.5,
     comboTimeout: 2000
 };
+
+// ========== 关卡配置 ==========
+const LEVELS = [
+    { level: 1, star1: 800, star2: 1500, star3: 2500, bombRate: 0.08, speedMultiplier: 1.0 },
+    { level: 2, star1: 1200, star2: 2000, star3: 3200, bombRate: 0.12, speedMultiplier: 1.15 },
+    { level: 3, star1: 1600, star2: 2800, star3: 4200, bombRate: 0.16, speedMultiplier: 1.3 },
+    { level: 4, star1: 2000, star2: 3500, star3: 5000, bombRate: 0.20, speedMultiplier: 1.45 },
+    { level: 5, star1: 2500, star2: 4200, star3: 6000, bombRate: 0.25, speedMultiplier: 1.6 }
+];
+
+// ========== 模拟排行榜数据 ==========
+const FAKE_LEADERBOARD = [
+    { name: '蜘蛛侠Peter', score: 0 },
+    { name: '闪电小子', score: 0 },
+    { name: '暗夜猎手', score: 0 },
+    { name: '星际战士', score: 0 },
+    { name: '雷霆之怒', score: 0 },
+    { name: '疾风剑客', score: 0 },
+    { name: '烈焰法师', score: 0 },
+    { name: '冰霜女王', score: 0 }
+];
 
 // ========== 游戏状态 ==========
 const gameState = {
@@ -25,7 +46,14 @@ const gameState = {
     hands: [
         { landmarks: null, isShootGesture: false, palmCenter: null },
         { landmarks: null, isShootGesture: false, palmCenter: null }
-    ]
+    ],
+    // 关卡系统
+    currentLevel: 1,
+    bombHits: 0,
+    stars: 0,
+    gameOverReason: '', // 'time' 或 'bomb'
+    // 解锁状态
+    isUnlocked: false
 };
 
 // ========== DOM 元素 ==========
@@ -46,7 +74,12 @@ const elements = {
     gestureIcon: document.getElementById('gesture-icon'),
     gestureText: document.getElementById('gesture-text'),
     comboDisplay: document.getElementById('combo-display'),
-    combo: document.getElementById('combo')
+    combo: document.getElementById('combo'),
+    // 解锁界面元素
+    unlockView: document.getElementById('unlock-view'),
+    unlockVideo: document.getElementById('unlock-video'),
+    unlockCanvas: document.getElementById('unlock-canvas'),
+    unlockStatus: document.getElementById('unlock-status')
 };
 
 // ========== Canvas 上下文 ==========
@@ -55,6 +88,12 @@ let canvasWidth, canvasHeight;
 
 // ========== MediaPipe Hands ==========
 let hands, camera;
+let unlockHands, unlockCamera;
+let unlockCanvasCtx;
+
+// ========== Shared Camera Stream (avoid repeated permission prompts) ==========
+let sharedStream = null;
+let cameraLoopId = null;
 
 // ========== 定时器引用（用于清理） ==========
 let gameLoopId = null;
@@ -65,26 +104,33 @@ let lastHandUpdateTime = 0;
 let handWatchdogInterval = null;
 const SHOOT_COOLDOWN = 250; // 全局射击冷却时间(ms)，双手共享
 let lastGlobalShootTime = 0;
+let webStyleIndex = 0; // 蛛蛛网样式索引，轮换使用
 let lastProcessTime = 0;
 const PROCESS_INTERVAL = 50; // 处理间隔(ms)，限制处理频率为20fps
 
 // ========== 怪物类型 ==========
 const MONSTER_TYPES = [
-    { emoji: '👾', points: 100, size: 60 },
-    { emoji: '👻', points: 150, size: 55 },
-    { emoji: '🤖', points: 120, size: 65 },
-    { emoji: '👹', points: 200, size: 70 },
-    { emoji: '💀', points: 180, size: 50 },
-    { emoji: '🦇', points: 130, size: 45 },
-    { emoji: '🐙', points: 160, size: 60 },
-    { emoji: '👽', points: 140, size: 55 }
+    { emoji: '👾', points: 100, size: 60, isBomb: false },
+    { emoji: '👻', points: 150, size: 55, isBomb: false },
+    { emoji: '🤖', points: 120, size: 65, isBomb: false },
+    { emoji: '👹', points: 200, size: 70, isBomb: false },
+    { emoji: '💀', points: 180, size: 50, isBomb: false },
+    { emoji: '🦇', points: 130, size: 45, isBomb: false },
+    { emoji: '🐙', points: 160, size: 60, isBomb: false },
+    { emoji: '👽', points: 140, size: 55, isBomb: false }
 ];
+
+// ========== 炸弹类型 ==========
+const BOMB_TYPE = { emoji: '💣', points: 0, size: 55, isBomb: true };
 
 // ========== 初始化 ==========
 function init() {
     setupCanvas();
     setupEventListeners();
     elements.highScoreDisplay.textContent = gameState.highScore;
+    
+    // 启动解锁界面的手势检测
+    setupUnlockMediaPipe();
 }
 
 function setupCanvas() {
@@ -98,10 +144,140 @@ function setupCanvas() {
     
     gameCtx = elements.gameCanvas.getContext('2d');
     handCtx = elements.handCanvas.getContext('2d');
+    
+    // 解锁界面canvas
+    if (elements.unlockCanvas) {
+        elements.unlockCanvas.width = canvasWidth;
+        elements.unlockCanvas.height = canvasHeight;
+        unlockCanvasCtx = elements.unlockCanvas.getContext('2d');
+    }
+}
+
+// ========== 解锁界面 MediaPipe ==========
+async function setupUnlockMediaPipe() {
+    try {
+        console.log('正在初始化解锁界面 MediaPipe...');
+
+        await ensureCameraStream();
+        
+        unlockHands = new Hands({
+            locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`
+        });
+        
+        unlockHands.setOptions({
+            maxNumHands: 1,
+            modelComplexity: 0,
+            minDetectionConfidence: 0.5,
+            minTrackingConfidence: 0.4
+        });
+        
+        unlockHands.onResults(onUnlockHandResults);
+
+        startCameraProcessingLoop();
+        console.log('解锁摄像头启动成功！');
+        updateUnlockStatus('等待手势...', false);
+    } catch (error) {
+        console.error('解锁MediaPipe初始化失败:', error);
+        updateUnlockStatus('摄像头启动失败', false);
+    }
+}
+
+// 解锁手势检测结果
+function onUnlockHandResults(results) {
+    if (gameState.isUnlocked) return;
+    
+    if (unlockCanvasCtx) {
+        unlockCanvasCtx.clearRect(0, 0, canvasWidth, canvasHeight);
+    }
+    
+    if (results.multiHandLandmarks && results.multiHandLandmarks.length > 0) {
+        const landmarks = results.multiHandLandmarks[0];
+        
+        // 绘制手部关键点
+        drawUnlockHandLandmarks(landmarks);
+        
+        // 检测蛛蛛侠手势
+        const isShootGesture = detectShootGesture(landmarks);
+        
+        if (isShootGesture) {
+            updateUnlockStatus('✅ 手势识别成功！', true);
+            // 延迟解锁，让用户看到反馈
+            setTimeout(() => {
+                unlockGame();
+            }, 800);
+        } else {
+            updateUnlockStatus('继续保持手势...', false);
+        }
+    } else {
+        updateUnlockStatus('等待手势...', false);
+    }
+}
+
+// 绘制解锁界面手部关键点
+function drawUnlockHandLandmarks(landmarks) {
+    if (!unlockCanvasCtx) return;
+    
+    unlockCanvasCtx.fillStyle = 'rgba(230, 57, 70, 0.8)';
+    unlockCanvasCtx.strokeStyle = 'rgba(255, 255, 255, 0.5)';
+    unlockCanvasCtx.lineWidth = 2;
+    
+    for (let i = 0; i < landmarks.length; i++) {
+        const x = (1 - landmarks[i].x) * canvasWidth;
+        const y = landmarks[i].y * canvasHeight;
+        
+        unlockCanvasCtx.beginPath();
+        unlockCanvasCtx.arc(x, y, 4, 0, 2 * Math.PI);
+        unlockCanvasCtx.fill();
+    }
+}
+
+// 更新解锁状态显示
+function updateUnlockStatus(text, detected) {
+    const statusText = elements.unlockStatus?.querySelector('.status-text');
+    if (statusText) {
+        statusText.textContent = text;
+    }
+    if (elements.unlockStatus) {
+        if (detected) {
+            elements.unlockStatus.classList.add('detected');
+        } else {
+            elements.unlockStatus.classList.remove('detected');
+        }
+    }
+}
+
+// 解锁游戏 - 直接开始游戏
+function unlockGame() {
+    if (gameState.isUnlocked) return; // 防止重复触发
+    gameState.isUnlocked = true;
+    
+    // 复用解锁的Hands实例，切换为双手模式
+    if (unlockHands) {
+        unlockHands.setOptions({
+            maxNumHands: 2,
+            modelComplexity: 0,
+            minDetectionConfidence: 0.5,
+            minTrackingConfidence: 0.4
+        });
+        unlockHands.onResults(onHandResults);
+        hands = unlockHands;
+    }
+    
+    // 复用同一个摄像头流，切换展示目标到游戏 video
+    if (sharedStream) {
+        elements.video.srcObject = sharedStream;
+    }
+    startCameraProcessingLoop();
+    
+    // 直接开始游戏（默认第1关）
+    gameState.currentLevel = 1;
+    startGame();
 }
 
 function setupEventListeners() {
-    elements.startBtn.addEventListener('click', startGame);
+    if (elements.startBtn) {
+        elements.startBtn.addEventListener('click', startGame);
+    }
     elements.restartBtn.addEventListener('click', startGame);
     window.addEventListener('resize', setupCanvas);
 }
@@ -110,6 +286,8 @@ function setupEventListeners() {
 async function setupMediaPipe() {
     try {
         console.log('正在初始化 MediaPipe...');
+
+        await ensureCameraStream();
         
         hands = new Hands({
             locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`
@@ -123,16 +301,8 @@ async function setupMediaPipe() {
         });
         
         hands.onResults(onHandResults);
-        
-        camera = new Camera(elements.video, {
-            onFrame: async () => {
-                await hands.send({ image: elements.video });
-            },
-            width: 640,
-            height: 480
-        });
-        
-        await camera.start();
+
+        startCameraProcessingLoop();
         console.log('摄像头启动成功！');
         elements.gestureText.textContent = '摄像头已启动';
     } catch (error) {
@@ -141,18 +311,70 @@ async function setupMediaPipe() {
     }
 }
 
+async function ensureCameraStream() {
+    if (sharedStream) {
+        if (elements.unlockVideo && elements.unlockVideo.srcObject !== sharedStream) {
+            elements.unlockVideo.srcObject = sharedStream;
+        }
+        if (elements.video && elements.video.srcObject !== sharedStream) {
+            elements.video.srcObject = sharedStream;
+        }
+        return sharedStream;
+    }
+
+    const stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: 'user' },
+        audio: false
+    });
+    sharedStream = stream;
+
+    if (elements.unlockVideo) {
+        elements.unlockVideo.srcObject = sharedStream;
+        await elements.unlockVideo.play().catch(() => {});
+    }
+    if (elements.video) {
+        elements.video.srcObject = sharedStream;
+        await elements.video.play().catch(() => {});
+    }
+
+    return sharedStream;
+}
+
+function startCameraProcessingLoop() {
+    if (cameraLoopId) return;
+
+    const loop = async () => {
+        try {
+            if (!gameState.isUnlocked) {
+                if (unlockHands && elements.unlockVideo) {
+                    await unlockHands.send({ image: elements.unlockVideo });
+                }
+            } else {
+                if (hands && gameState.isPlaying && elements.video) {
+                    await hands.send({ image: elements.video });
+                }
+            }
+        } catch (err) {
+            console.error('摄像头处理循环错误:', err);
+        }
+
+        cameraLoopId = requestAnimationFrame(loop);
+    };
+
+    cameraLoopId = requestAnimationFrame(loop);
+}
+
 function onHandResults(results) {
     lastHandUpdateTime = Date.now();
     
-    // 节流处理，限制处理频率
-    const now = Date.now();
-    if (now - lastProcessTime < PROCESS_INTERVAL) {
-        return;
-    }
-    lastProcessTime = now;
-    
     try {
-        handCtx.clearRect(0, 0, canvasWidth, canvasHeight);
+        // 节流绘制（但不节流手势状态更新，避免错过“松开手势”的那一帧）
+        const now = Date.now();
+        const shouldDraw = now - lastProcessTime >= PROCESS_INTERVAL;
+        if (shouldDraw) {
+            lastProcessTime = now;
+            handCtx.clearRect(0, 0, canvasWidth, canvasHeight);
+        }
         
         // 重置未检测到的手
         const detectedCount = results.multiHandLandmarks ? results.multiHandLandmarks.length : 0;
@@ -170,7 +392,9 @@ function onHandResults(results) {
             const landmarks = results.multiHandLandmarks[i];
             const handState = gameState.hands[i];
             
-            drawHandLandmarks(landmarks);
+            if (shouldDraw) {
+                drawHandLandmarks(landmarks);
+            }
             
             // 获取手腕位置
             const wristPos = getWristPosition(landmarks);
@@ -348,6 +572,104 @@ function shootWebAtPosition(x, y) {
     }
 }
 
+// 生成不规则多边形顶点
+function generateIrregularPolygon(r, sides, irregularity) {
+    const points = [];
+    for (let i = 0; i < sides; i++) {
+        const baseAngle = (i / sides) * Math.PI * 2;
+        const angleOffset = (Math.random() - 0.5) * irregularity;
+        const radiusOffset = 0.7 + Math.random() * 0.3;
+        const x = Math.cos(baseAngle + angleOffset) * r * radiusOffset;
+        const y = Math.sin(baseAngle + angleOffset) * r * radiusOffset;
+        points.push(`${x.toFixed(1)},${y.toFixed(1)}`);
+    }
+    return points.join(' ');
+}
+
+function generateRegularPolygonVertices(r, sides, rotation = -Math.PI / 2) {
+    const vertices = [];
+    for (let i = 0; i < sides; i++) {
+        const angle = rotation + (i / sides) * Math.PI * 2;
+        vertices.push({
+            x: Math.cos(angle) * r,
+            y: Math.sin(angle) * r
+        });
+    }
+    return vertices;
+}
+
+function verticesToPoints(vertices) {
+    return vertices.map(v => `${v.x.toFixed(1)},${v.y.toFixed(1)}`).join(' ');
+}
+
+function generateSpokes(vertices, sw, opacity) {
+    return vertices.map(v => (
+        `<line x1="0" y1="0" x2="${v.x.toFixed(1)}" y2="${v.y.toFixed(1)}" stroke="white" stroke-width="${sw}" opacity="${opacity}"/>`
+    )).join('');
+}
+
+// 6种不规则多边形蜘蛛网样式
+function getWebSVG(radius, styleIndex) {
+    const r = radius;
+    const sw = 5; // 线条粗细
+    
+    const styles = [
+        // 样式0: 规则六边形蛛网（带辐条）
+        (() => {
+            const outer = generateRegularPolygonVertices(r * 0.9, 6);
+            const mid = generateRegularPolygonVertices(r * 0.55, 6);
+            const inner = generateRegularPolygonVertices(r * 0.25, 6);
+            return `
+                <polygon points="${verticesToPoints(outer)}" fill="none" stroke="white" stroke-width="${sw}" opacity="0.95"/>
+                <polygon points="${verticesToPoints(mid)}" fill="none" stroke="white" stroke-width="${sw - 1}" opacity="0.8"/>
+                <polygon points="${verticesToPoints(inner)}" fill="none" stroke="white" stroke-width="${sw - 2}" opacity="0.6"/>
+                ${generateSpokes(outer, sw - 2, 0.65)}
+            `;
+        })(),
+
+        // 样式1: 规则五边形蛛网（带辐条）
+        (() => {
+            const outer = generateRegularPolygonVertices(r * 0.92, 5);
+            const mid = generateRegularPolygonVertices(r * 0.6, 5);
+            const inner = generateRegularPolygonVertices(r * 0.32, 5);
+            return `
+                <polygon points="${verticesToPoints(outer)}" fill="none" stroke="white" stroke-width="${sw}" opacity="0.95"/>
+                <polygon points="${verticesToPoints(mid)}" fill="none" stroke="white" stroke-width="${sw - 1}" opacity="0.8"/>
+                <polygon points="${verticesToPoints(inner)}" fill="none" stroke="white" stroke-width="${sw - 2}" opacity="0.6"/>
+                ${generateSpokes(outer, sw - 2, 0.65)}
+            `;
+        })(),
+
+        // 样式1: 不规则五边形蛛网
+        `<polygon points="${generateIrregularPolygon(r * 0.9, 5, 0.4)}" fill="none" stroke="white" stroke-width="${sw}" opacity="0.95"/>
+         <polygon points="${generateIrregularPolygon(r * 0.55, 5, 0.5)}" fill="none" stroke="white" stroke-width="${sw - 1}" opacity="0.8"/>
+         <polygon points="${generateIrregularPolygon(r * 0.25, 5, 0.3)}" fill="none" stroke="white" stroke-width="${sw - 1}" opacity="0.6"/>`,
+        
+        // 样式2: 不规则六边形蛛网
+        `<polygon points="${generateIrregularPolygon(r * 0.9, 6, 0.35)}" fill="none" stroke="white" stroke-width="${sw}" opacity="0.95"/>
+         <polygon points="${generateIrregularPolygon(r * 0.5, 6, 0.4)}" fill="none" stroke="white" stroke-width="${sw - 1}" opacity="0.75"/>`,
+        
+        // 样式3: 不规则七边形蛛网
+        `<polygon points="${generateIrregularPolygon(r * 0.85, 7, 0.45)}" fill="none" stroke="white" stroke-width="${sw}" opacity="0.9"/>
+         <polygon points="${generateIrregularPolygon(r * 0.45, 7, 0.5)}" fill="none" stroke="white" stroke-width="${sw - 1}" opacity="0.7"/>`,
+        
+        // 样式4: 不规则八边形蛛网
+        `<polygon points="${generateIrregularPolygon(r * 0.9, 8, 0.3)}" fill="none" stroke="white" stroke-width="${sw}" opacity="0.95"/>
+         <polygon points="${generateIrregularPolygon(r * 0.55, 8, 0.4)}" fill="none" stroke="white" stroke-width="${sw - 1}" opacity="0.8"/>
+         <polygon points="${generateIrregularPolygon(r * 0.25, 8, 0.35)}" fill="none" stroke="white" stroke-width="${sw - 2}" opacity="0.6"/>`,
+        
+        // 样式5: 不规则四边形蛛网（菱形变体）
+        `<polygon points="${generateIrregularPolygon(r * 0.9, 4, 0.5)}" fill="none" stroke="white" stroke-width="${sw}" opacity="0.95"/>
+         <polygon points="${generateIrregularPolygon(r * 0.5, 4, 0.6)}" fill="none" stroke="white" stroke-width="${sw - 1}" opacity="0.75"/>`,
+        
+        // 样式6: 不规则九边形蛛网
+        `<polygon points="${generateIrregularPolygon(r * 0.85, 9, 0.4)}" fill="none" stroke="white" stroke-width="${sw}" opacity="0.9"/>
+         <polygon points="${generateIrregularPolygon(r * 0.45, 9, 0.45)}" fill="none" stroke="white" stroke-width="${sw - 1}" opacity="0.7"/>`
+    ];
+    
+    return styles[styleIndex % styles.length];
+}
+
 // 创建蜘蛛网动效
 function createWebEffect(x, y, radius) {
     // 限制动效数量
@@ -355,12 +677,16 @@ function createWebEffect(x, y, radius) {
         gameState.webEffects.shift();
     }
     
+    const currentStyle = webStyleIndex;
+    webStyleIndex = (webStyleIndex + 1) % 8; // 轮换到下一个样式
+    
     const webEffect = {
         x: x,
         y: y,
         radius: radius,
         startTime: Date.now(),
-        duration: 400
+        duration: 400,
+        style: currentStyle
     };
     gameState.webEffects.push(webEffect);
     
@@ -371,15 +697,7 @@ function createWebEffect(x, y, radius) {
     webDiv.style.top = `${y}px`;
     webDiv.innerHTML = `
         <svg width="${radius * 2}" height="${radius * 2}" viewBox="-${radius} -${radius} ${radius * 2} ${radius * 2}">
-            <circle cx="0" cy="0" r="${radius * 0.9}" fill="none" stroke="white" stroke-width="3" opacity="0.9"/>
-            <circle cx="0" cy="0" r="${radius * 0.6}" fill="none" stroke="white" stroke-width="2" opacity="0.7"/>
-            <circle cx="0" cy="0" r="${radius * 0.3}" fill="none" stroke="white" stroke-width="1.5" opacity="0.5"/>
-            <line x1="0" y1="-${radius * 0.9}" x2="0" y2="${radius * 0.9}" stroke="white" stroke-width="2" opacity="0.8"/>
-            <line x1="-${radius * 0.9}" y1="0" x2="${radius * 0.9}" y2="0" stroke="white" stroke-width="2" opacity="0.8"/>
-            <line x1="-${radius * 0.64}" y1="-${radius * 0.64}" x2="${radius * 0.64}" y2="${radius * 0.64}" stroke="white" stroke-width="2" opacity="0.8"/>
-            <line x1="${radius * 0.64}" y1="-${radius * 0.64}" x2="-${radius * 0.64}" y2="${radius * 0.64}" stroke="white" stroke-width="2" opacity="0.8"/>
-            <line x1="-${radius * 0.45}" y1="-${radius * 0.8}" x2="${radius * 0.45}" y2="${radius * 0.8}" stroke="white" stroke-width="1.5" opacity="0.6"/>
-            <line x1="${radius * 0.45}" y1="-${radius * 0.8}" x2="-${radius * 0.45}" y2="${radius * 0.8}" stroke="white" stroke-width="1.5" opacity="0.6"/>
+            ${getWebSVG(radius, currentStyle)}
         </svg>
     `;
     document.body.appendChild(webDiv);
@@ -458,11 +776,17 @@ function spawnMonster() {
     if (!gameState.isPlaying) return;
     if (gameState.monsters.length >= CONFIG.maxMonsters) return;
     
-    const type = MONSTER_TYPES[Math.floor(Math.random() * MONSTER_TYPES.length)];
+    // 获取当前关卡配置
+    const levelConfig = LEVELS[gameState.currentLevel - 1] || LEVELS[0];
+    
+    // 根据关卡炸弹概率决定是否生成炸弹
+    const isBomb = Math.random() < levelConfig.bombRate;
+    const type = isBomb ? BOMB_TYPE : MONSTER_TYPES[Math.floor(Math.random() * MONSTER_TYPES.length)];
     
     // 捕鱼达人风格：从屏幕边缘进入，穿过屏幕到对面
     let x, y, targetX, targetY;
-    const speed = CONFIG.monsterSpeed + Math.random() * 0.5;
+    // 根据关卡调整速度
+    const speed = (CONFIG.monsterSpeed + Math.random() * 0.5) * levelConfig.speedMultiplier;
     
     // 随机选择从哪边进入（0=左, 1=右）
     const fromLeft = Math.random() > 0.5;
@@ -542,6 +866,21 @@ function drawMonsters() {
 // 瞄准线已移除，不再显示
 
 function hitMonster(monster, index) {
+    // 检查是否击中炸弹
+    if (monster.isBomb) {
+        gameState.bombHits++;
+        createBombEffect(monster.x, monster.y);
+        gameState.monsters.splice(index, 1);
+        updateBombDisplay();
+        
+        // 击中2次炸弹则游戏失败
+        if (gameState.bombHits >= 2) {
+            gameState.gameOverReason = 'bomb';
+            endGame();
+        }
+        return;
+    }
+    
     const now = Date.now();
     
     if (now - gameState.lastHitTime < CONFIG.comboTimeout) {
@@ -568,6 +907,28 @@ function hitMonster(monster, index) {
     updateScoreDisplay();
 }
 
+// 炸弹爆炸特效
+function createBombEffect(x, y) {
+    const bombDiv = document.createElement('div');
+    bombDiv.className = 'bomb-effect';
+    bombDiv.style.left = `${x}px`;
+    bombDiv.style.top = `${y}px`;
+    bombDiv.innerHTML = '💥';
+    document.body.appendChild(bombDiv);
+    setTimeout(() => bombDiv.remove(), 800);
+}
+
+// 更新炸弹击中显示
+function updateBombDisplay() {
+    const bombDisplay = document.getElementById('bomb-display');
+    if (bombDisplay) {
+        const hearts = bombDisplay.querySelectorAll('.bomb-heart');
+        if (hearts[gameState.bombHits - 1]) {
+            hearts[gameState.bombHits - 1].classList.add('lost');
+        }
+    }
+}
+
 function showScorePopup(x, y, points) {
     const popup = document.createElement('div');
     popup.className = 'score-popup';
@@ -589,24 +950,16 @@ function showCombo(combo) {
 }
 
 function createHitEffect(x, y) {
-    // 创建蛛蛛网罩住动画
+    // 创建蛛蛛网罩住动画 - 使用不规则多边形
     const webEffect = document.createElement('div');
     webEffect.className = 'web-catch-effect';
     webEffect.style.left = `${x}px`;
     webEffect.style.top = `${y}px`;
+    const r = 50;
     webEffect.innerHTML = `
         <svg width="100" height="100" viewBox="-50 -50 100 100">
-            <circle cx="0" cy="0" r="45" fill="none" stroke="white" stroke-width="2" opacity="0.8"/>
-            <circle cx="0" cy="0" r="30" fill="none" stroke="white" stroke-width="1.5" opacity="0.6"/>
-            <circle cx="0" cy="0" r="15" fill="none" stroke="white" stroke-width="1" opacity="0.4"/>
-            <line x1="0" y1="-45" x2="0" y2="45" stroke="white" stroke-width="1.5" opacity="0.7"/>
-            <line x1="-45" y1="0" x2="45" y2="0" stroke="white" stroke-width="1.5" opacity="0.7"/>
-            <line x1="-32" y1="-32" x2="32" y2="32" stroke="white" stroke-width="1.5" opacity="0.7"/>
-            <line x1="32" y1="-32" x2="-32" y2="32" stroke="white" stroke-width="1.5" opacity="0.7"/>
-            <line x1="-22" y1="-40" x2="22" y2="40" stroke="white" stroke-width="1" opacity="0.5"/>
-            <line x1="22" y1="-40" x2="-22" y2="40" stroke="white" stroke-width="1" opacity="0.5"/>
-            <line x1="-40" y1="-22" x2="40" y2="22" stroke="white" stroke-width="1" opacity="0.5"/>
-            <line x1="-40" y1="22" x2="40" y2="-22" stroke="white" stroke-width="1" opacity="0.5"/>
+            <polygon points="${generateIrregularPolygon(r * 0.9, 6, 0.4)}" fill="none" stroke="white" stroke-width="5" opacity="0.9"/>
+            <polygon points="${generateIrregularPolygon(r * 0.5, 6, 0.45)}" fill="none" stroke="white" stroke-width="4" opacity="0.7"/>
         </svg>
     `;
     document.body.appendChild(webEffect);
@@ -631,6 +984,12 @@ async function startGame() {
     gameState.combo = 0;
     gameState.monsters = [];
     gameState.webEffects = [];
+    gameState.bombHits = 0;
+    gameState.stars = 0;
+    gameState.gameOverReason = '';
+    
+    // 重置炸弹显示
+    resetBombDisplay();
     
     updateScoreDisplay();
     updateTimeDisplay();
@@ -645,8 +1004,8 @@ async function startGame() {
         setTimeout(() => spawnMonster(), i * 300);
     }
     
-    // 异步初始化摄像头
-    if (!camera) {
+    // 如果摄像头还未初始化（从结束界面重新开始时）
+    if (!hands && !gameState.isUnlocked) {
         setupMediaPipe();
     }
     
@@ -695,6 +1054,7 @@ function startTimer() {
         if (gameState.timeLeft <= 0) {
             clearInterval(timerInterval);
             timerInterval = null;
+            gameState.gameOverReason = 'time';
             endGame();
         }
     }, 1000);
@@ -730,11 +1090,166 @@ function endGame() {
         localStorage.setItem('spiderHighScore', gameState.highScore);
     }
     
+    // 计算星级
+    calculateStars();
+    
+    // 显示结束界面
     elements.finalScore.textContent = gameState.score;
     elements.highScoreDisplay.textContent = gameState.highScore;
     
+    // 更新星级显示
+    updateStarsDisplay();
+    
+    // 显示失败原因
+    updateGameOverReason();
+    
+    // 生成模拟排行榜
+    generateLeaderboard();
+
+    // 达成 1★ 则自动进入下一关（最后一关除外）
+    const canAdvance = gameState.stars >= 1 && gameState.currentLevel < LEVELS.length;
+    if (elements.restartBtn) {
+        elements.restartBtn.textContent = canAdvance ? '下一关' : '再来一局';
+    }
+    if (canAdvance) {
+        gameState.currentLevel += 1;
+    }
+    
     elements.gameScreen.classList.add('hidden');
     elements.endScreen.classList.remove('hidden');
+}
+
+// 计算星级
+function calculateStars() {
+    const levelConfig = LEVELS[gameState.currentLevel - 1] || LEVELS[0];
+    const score = gameState.score;
+    
+    if (score >= levelConfig.star3) {
+        gameState.stars = 3;
+    } else if (score >= levelConfig.star2) {
+        gameState.stars = 2;
+    } else if (score >= levelConfig.star1) {
+        gameState.stars = 1;
+    } else {
+        gameState.stars = 0;
+    }
+}
+
+// 更新星级显示
+function updateStarsDisplay() {
+    const starsContainer = document.getElementById('stars-display');
+    if (starsContainer) {
+        const levelConfig = LEVELS[gameState.currentLevel - 1] || LEVELS[0];
+        let starsHTML = '';
+        for (let i = 1; i <= 3; i++) {
+            if (i <= gameState.stars) {
+                starsHTML += '<span class="star filled">⭐</span>';
+            } else {
+                starsHTML += '<span class="star empty">☆</span>';
+            }
+        }
+        starsContainer.innerHTML = starsHTML;
+        
+        // 显示分数要求
+        const reqDisplay = document.getElementById('score-requirements');
+        if (reqDisplay) {
+            reqDisplay.innerHTML = `
+                <span class="req ${gameState.score >= levelConfig.star1 ? 'achieved' : ''}">1★: ${levelConfig.star1}</span>
+                <span class="req ${gameState.score >= levelConfig.star2 ? 'achieved' : ''}">2★: ${levelConfig.star2}</span>
+                <span class="req ${gameState.score >= levelConfig.star3 ? 'achieved' : ''}">3★: ${levelConfig.star3}</span>
+            `;
+        }
+    }
+}
+
+// 显示失败原因
+function updateGameOverReason() {
+    const reasonDisplay = document.getElementById('game-over-reason');
+    if (reasonDisplay) {
+        if (gameState.gameOverReason === 'bomb') {
+            reasonDisplay.textContent = '💣 炸弹爆炸！游戏失败';
+            reasonDisplay.className = 'game-over-reason bomb';
+        } else {
+            reasonDisplay.textContent = '⏰ 时间到！';
+            reasonDisplay.className = 'game-over-reason time';
+        }
+    }
+}
+
+// 生成模拟排行榜
+function generateLeaderboard() {
+    const leaderboardContainer = document.getElementById('leaderboard');
+    if (!leaderboardContainer) return;
+    
+    // 生成模拟分数（基于当前关卡的分数范围）
+    const levelConfig = LEVELS[gameState.currentLevel - 1] || LEVELS[0];
+    const baseScore = levelConfig.star1;
+    const maxScore = levelConfig.star3 * 1.3;
+    
+    const fakeScores = FAKE_LEADERBOARD.map(player => ({
+        name: player.name,
+        score: Math.floor(baseScore + Math.random() * (maxScore - baseScore))
+    }));
+    
+    // 加入玩家分数
+    fakeScores.push({ name: '🎮 你', score: gameState.score, isPlayer: true });
+    
+    // 排序
+    fakeScores.sort((a, b) => b.score - a.score);
+    
+    // 只取前8名
+    const top8 = fakeScores.slice(0, 8);
+    
+    // 生成HTML
+    let html = '<div class="leaderboard-title">🏆 排行榜</div>';
+    top8.forEach((player, index) => {
+        const rankIcon = index === 0 ? '🥇' : index === 1 ? '🥈' : index === 2 ? '🥉' : `${index + 1}`;
+        const playerClass = player.isPlayer ? 'player-row' : '';
+        html += `
+            <div class="leaderboard-row ${playerClass}">
+                <span class="rank">${rankIcon}</span>
+                <span class="name">${player.name}</span>
+                <span class="lb-score">${player.score}</span>
+            </div>
+        `;
+    });
+    
+    leaderboardContainer.innerHTML = html;
+}
+
+// 重置炸弹显示
+function resetBombDisplay() {
+    const bombDisplay = document.getElementById('bomb-display');
+    if (bombDisplay) {
+        const hearts = bombDisplay.querySelectorAll('.bomb-heart');
+        hearts.forEach(heart => heart.classList.remove('lost'));
+    }
+}
+
+// 关卡选择
+function selectLevel(level) {
+    if (level >= 1 && level <= LEVELS.length) {
+        gameState.currentLevel = level;
+        updateLevelDisplay();
+    }
+}
+
+// 更新关卡显示
+function updateLevelDisplay() {
+    const levelDisplay = document.getElementById('current-level');
+    if (levelDisplay) {
+        levelDisplay.textContent = `第 ${gameState.currentLevel} 关`;
+    }
+    
+    // 更新关卡选择按钮状态
+    const levelBtns = document.querySelectorAll('.level-btn');
+    levelBtns.forEach((btn, index) => {
+        if (index + 1 === gameState.currentLevel) {
+            btn.classList.add('selected');
+        } else {
+            btn.classList.remove('selected');
+        }
+    });
 }
 
 function updateScoreDisplay() {
@@ -761,8 +1276,8 @@ function startHandWatchdog() {
         
         const timeSinceLastUpdate = Date.now() - lastHandUpdateTime;
         
-        // 如果超过2秒没有收到手势更新，尝试重启
-        if (timeSinceLastUpdate > 2000 && camera) {
+        // 如果超过2秒没有收到手势更新，尝试重启（不重启摄像头，避免重复权限弹窗）
+        if (timeSinceLastUpdate > 2000 && hands) {
             watchdogRetryCount++;
             console.warn(`MediaPipe无响应，尝试重启 (${watchdogRetryCount})...`);
             
@@ -770,9 +1285,7 @@ function startHandWatchdog() {
                 elements.gestureText.textContent = `重新连接中...(${watchdogRetryCount}/3)`;
                 
                 try {
-                    camera.stop();
-                    await new Promise(r => setTimeout(r, 300));
-                    await camera.start();
+                    await setupMediaPipe();
                     console.log('MediaPipe重启成功');
                     elements.gestureText.textContent = '已恢复';
                     lastHandUpdateTime = Date.now();

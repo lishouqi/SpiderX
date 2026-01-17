@@ -27,10 +27,116 @@ body {
     display: none !important;
 }
 
-/* 开始界面 */
+/* 开始界面 - 极简黑色风格 */
 #start-screen {
-    background: linear-gradient(135deg, #1a1a2e 0%, #e63946 100%);
+    background: #000;
     z-index: 100;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+}
+
+.unlock-view, .level-view {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    padding: 40px;
+    z-index: 10;
+}
+
+.main-title {
+    font-size: 5rem;
+    font-weight: 100;
+    letter-spacing: 20px;
+    color: #fff;
+    margin-bottom: 60px;
+    text-shadow: 0 0 30px rgba(255, 255, 255, 0.3);
+    animation: titleGlow 3s ease-in-out infinite;
+}
+
+@keyframes titleGlow {
+    0%, 100% { text-shadow: 0 0 30px rgba(255, 255, 255, 0.3); }
+    50% { text-shadow: 0 0 50px rgba(255, 255, 255, 0.6), 0 0 80px rgba(230, 57, 70, 0.4); }
+}
+
+.unlock-hint {
+    margin-bottom: 40px;
+}
+
+.gesture-demo {
+    font-size: 5rem;
+    margin-bottom: 20px;
+    animation: gestureFloat 2s ease-in-out infinite;
+}
+
+@keyframes gestureFloat {
+    0%, 100% { transform: translateY(0) rotate(-5deg); }
+    50% { transform: translateY(-10px) rotate(5deg); }
+}
+
+.unlock-text {
+    font-size: 1.3rem;
+    color: #888;
+    margin-bottom: 10px;
+}
+
+.gesture-detail {
+    font-size: 0.9rem;
+    color: #555;
+}
+
+.unlock-status {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 15px 30px;
+    border: 1px solid #333;
+    border-radius: 30px;
+}
+
+.status-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: #555;
+    animation: dotPulse 1.5s ease-in-out infinite;
+}
+
+.unlock-status.detected .status-dot {
+    background: #00ff88;
+    box-shadow: 0 0 15px #00ff88;
+}
+
+@keyframes dotPulse {
+    0%, 100% { opacity: 0.5; }
+    50% { opacity: 1; }
+}
+
+.status-text {
+    color: #666;
+    font-size: 0.95rem;
+}
+
+.unlock-video, .unlock-canvas {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    transform: scaleX(-1);
+    opacity: 0.25;
+    z-index: 1;
+}
+
+.unlock-canvas {
+    z-index: 2;
+    opacity: 0.5;
 }
 
 .title-container {
@@ -261,10 +367,84 @@ body {
     }
 }
 
-/* 结束界面 */
+/* 结束界面 - 并行排版 */
 #end-screen {
-    background: rgba(0, 0, 0, 0.9);
+    background: rgba(0, 0, 0, 0.95);
     z-index: 100;
+}
+
+.end-container-new {
+    text-align: center;
+    padding: 30px;
+    max-width: 900px;
+    width: 90%;
+}
+
+.end-title {
+    font-size: 2.5rem;
+    margin-bottom: 20px;
+    color: #e63946;
+}
+
+.end-content {
+    display: flex;
+    justify-content: center;
+    gap: 40px;
+    margin: 30px 0;
+    flex-wrap: wrap;
+}
+
+.end-left {
+    flex: 1;
+    min-width: 280px;
+    max-width: 350px;
+}
+
+.end-right {
+    flex: 1;
+    min-width: 280px;
+    max-width: 380px;
+}
+
+/* 微动效果 */
+.float-anim {
+    animation: floatY 3s ease-in-out infinite;
+}
+
+.float-anim-slow {
+    animation: floatY 4s ease-in-out infinite;
+}
+
+@keyframes floatY {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-8px); }
+}
+
+.pulse-anim {
+    animation: pulseScale 2s ease-in-out infinite;
+}
+
+@keyframes pulseScale {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.02); }
+}
+
+.scale-anim {
+    animation: breathe 2.5s ease-in-out infinite;
+}
+
+@keyframes breathe {
+    0%, 100% { transform: scale(1); opacity: 1; }
+    50% { transform: scale(1.05); opacity: 0.9; }
+}
+
+.slide-anim {
+    animation: slideIn 0.6s ease-out, floatY 4s ease-in-out 0.6s infinite;
+}
+
+@keyframes slideIn {
+    0% { transform: translateX(30px); opacity: 0; }
+    100% { transform: translateX(0); opacity: 1; }
 }
 
 .end-container {
@@ -333,4 +513,240 @@ body {
 @keyframes scoreFloat {
     0% { transform: translateY(0) scale(1); opacity: 1; }
     100% { transform: translateY(-80px) scale(1.5); opacity: 0; }
+}
+
+/* 关卡选择 */
+.level-select {
+    margin: 20px auto;
+    text-align: center;
+}
+
+.level-title {
+    font-size: 1.2rem;
+    color: #ffd700;
+    margin-bottom: 10px;
+}
+
+.level-buttons {
+    display: flex;
+    justify-content: center;
+    gap: 10px;
+    margin-bottom: 10px;
+}
+
+.level-btn {
+    width: 50px;
+    height: 50px;
+    border-radius: 50%;
+    border: 2px solid #e63946;
+    background: rgba(230, 57, 70, 0.3);
+    color: white;
+    font-size: 1.3rem;
+    font-weight: bold;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.level-btn:hover {
+    background: rgba(230, 57, 70, 0.6);
+    transform: scale(1.1);
+}
+
+.level-btn.selected {
+    background: #e63946;
+    box-shadow: 0 0 15px rgba(230, 57, 70, 0.8);
+}
+
+.current-level {
+    font-size: 1.1rem;
+    color: #4cc9f0;
+}
+
+.bomb-warning {
+    margin: 15px auto;
+    padding: 10px 20px;
+    background: rgba(255, 100, 100, 0.2);
+    border: 1px solid #ff6b6b;
+    border-radius: 10px;
+    max-width: 350px;
+}
+
+.bomb-warning p {
+    font-size: 0.95rem;
+    color: #ff6b6b;
+}
+
+/* 炸弹/生命显示 */
+#bomb-display {
+    background: rgba(0, 0, 0, 0.7);
+    border: 2px solid #ff6b6b;
+    border-radius: 15px;
+    padding: 10px 20px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+.bomb-label {
+    font-size: 0.9rem;
+    color: #aaa;
+}
+
+.bomb-hearts {
+    display: flex;
+    gap: 5px;
+    font-size: 1.5rem;
+}
+
+.bomb-heart {
+    transition: all 0.3s ease;
+}
+
+.bomb-heart.lost {
+    filter: grayscale(100%);
+    opacity: 0.4;
+    transform: scale(0.8);
+}
+
+/* 炸弹爆炸特效 */
+.bomb-effect {
+    position: absolute;
+    transform: translate(-50%, -50%);
+    font-size: 80px;
+    pointer-events: none;
+    z-index: 100;
+    animation: bombExplode 0.8s ease-out forwards;
+}
+
+@keyframes bombExplode {
+    0% { transform: translate(-50%, -50%) scale(0.5); opacity: 1; }
+    50% { transform: translate(-50%, -50%) scale(2); opacity: 1; }
+    100% { transform: translate(-50%, -50%) scale(2.5); opacity: 0; }
+}
+
+/* 游戏结束原因 */
+.game-over-reason {
+    font-size: 1.5rem;
+    padding: 10px 25px;
+    border-radius: 25px;
+    margin-bottom: 15px;
+}
+
+.game-over-reason.time {
+    background: rgba(76, 201, 240, 0.2);
+    color: #4cc9f0;
+    border: 2px solid #4cc9f0;
+}
+
+.game-over-reason.bomb {
+    background: rgba(255, 100, 100, 0.2);
+    color: #ff6b6b;
+    border: 2px solid #ff6b6b;
+    animation: bombShake 0.5s ease-in-out;
+}
+
+@keyframes bombShake {
+    0%, 100% { transform: translateX(0); }
+    25% { transform: translateX(-10px); }
+    75% { transform: translateX(10px); }
+}
+
+/* 星级显示 */
+.stars-display {
+    font-size: 3rem;
+    margin: 15px 0;
+}
+
+.star {
+    margin: 0 5px;
+    transition: all 0.3s ease;
+}
+
+.star.filled {
+    animation: starPop 0.5s ease-out;
+}
+
+.star.empty {
+    color: #555;
+    font-size: 2.5rem;
+}
+
+@keyframes starPop {
+    0% { transform: scale(0); }
+    50% { transform: scale(1.3); }
+    100% { transform: scale(1); }
+}
+
+/* 分数要求显示 */
+.score-requirements {
+    display: flex;
+    justify-content: center;
+    gap: 20px;
+    margin-bottom: 15px;
+    flex-wrap: wrap;
+}
+
+.score-requirements .req {
+    font-size: 0.9rem;
+    color: #888;
+    padding: 5px 12px;
+    border-radius: 15px;
+    background: rgba(255, 255, 255, 0.1);
+}
+
+.score-requirements .req.achieved {
+    color: #ffd700;
+    background: rgba(255, 215, 0, 0.2);
+    border: 1px solid #ffd700;
+}
+
+/* 排行榜 */
+.leaderboard {
+    margin: 20px auto;
+    max-width: 350px;
+    background: rgba(0, 0, 0, 0.5);
+    border-radius: 15px;
+    padding: 15px;
+    border: 2px solid #4cc9f0;
+}
+
+.leaderboard-title {
+    font-size: 1.3rem;
+    color: #ffd700;
+    margin-bottom: 10px;
+    text-align: center;
+}
+
+.leaderboard-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 10px;
+    border-radius: 8px;
+    margin: 5px 0;
+    background: rgba(255, 255, 255, 0.05);
+}
+
+.leaderboard-row.player-row {
+    background: rgba(230, 57, 70, 0.3);
+    border: 1px solid #e63946;
+}
+
+.leaderboard-row .rank {
+    font-size: 1.2rem;
+    width: 35px;
+    text-align: center;
+}
+
+.leaderboard-row .name {
+    flex: 1;
+    text-align: left;
+    margin-left: 10px;
+    font-size: 0.95rem;
+}
+
+.leaderboard-row .lb-score {
+    font-size: 1rem;
+    color: #ffd700;
+    font-weight: bold;
 }
