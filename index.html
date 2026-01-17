@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>蜘蛛侠捕怪大作战</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <!-- 开始界面 -->
+    <div id="start-screen" class="screen">
+        <div class="title-container">
+            <h1>🕷️ 蜘蛛侠捕怪大作战 🕸️</h1>
+            <p class="subtitle">使用蜘蛛侠经典手势发射蜘蛛丝，消灭怪物！</p>
+            <div class="gesture-hint">
+                <p>🤟 经典射丝手势</p>
+                <p class="gesture-desc">中指+无名指弯曲，拇指+食指+小指伸直</p>
+            </div>
+            <button id="start-btn" class="btn-primary">开始游戏</button>
+        </div>
+    </div>
+
+    <!-- 游戏界面 -->
+    <div id="game-screen" class="screen hidden">
+        <!-- 摄像头视频（镜像显示） -->
+        <video id="video" autoplay playsinline></video>
+        
+        <!-- 游戏画布 -->
+        <canvas id="game-canvas"></canvas>
+        
+        <!-- 手势检测画布（调试用，可隐藏） -->
+        <canvas id="hand-canvas"></canvas>
+        
+        <!-- UI 层 -->
+        <div id="ui-layer">
+            <div id="score-display">
+                <span class="score-label">得分</span>
+                <span id="score">0</span>
+            </div>
+            <div id="combo-display" class="hidden">
+                <span id="combo">x2</span>
+            </div>
+            <div id="time-display">
+                <span class="time-label">时间</span>
+                <span id="time">60</span>
+            </div>
+        </div>
+
+        <!-- 手势状态提示 -->
+        <div id="gesture-status">
+            <span id="gesture-icon">✋</span>
+            <span id="gesture-text">等待手势...</span>
+        </div>
+    </div>
+
+    <!-- 结束界面 -->
+    <div id="end-screen" class="screen hidden">
+        <div class="end-container">
+            <h1>游戏结束</h1>
+            <div class="final-score">
+                <span class="label">最终得分</span>
+                <span id="final-score">0</span>
+            </div>
+            <div class="high-score">
+                <span class="label">最高记录</span>
+                <span id="high-score">0</span>
+            </div>
+            <button id="restart-btn" class="btn-primary">再来一局</button>
+        </div>
+    </div>
+
+    <!-- MediaPipe Scripts -->
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js" crossorigin="anonymous"></script>
+    
+    <!-- Game Scripts -->
+    <script src="game.js"></script>
+</body>
+</html>

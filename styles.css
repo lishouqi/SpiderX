@@ -1,0 +1,312 @@
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+    min-height: 100vh;
+    overflow: hidden;
+    color: white;
+}
+
+.screen {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+.hidden {
+    display: none !important;
+}
+
+/* 开始界面 */
+#start-screen {
+    background: linear-gradient(135deg, #1a1a2e 0%, #e63946 100%);
+    z-index: 100;
+}
+
+.title-container {
+    text-align: center;
+    padding: 40px;
+}
+
+.title-container h1 {
+    font-size: 3.5rem;
+    margin-bottom: 20px;
+    text-shadow: 0 0 20px rgba(230, 57, 70, 0.8);
+    animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.05); }
+}
+
+.subtitle {
+    font-size: 1.3rem;
+    color: #ddd;
+    margin-bottom: 30px;
+}
+
+.gesture-hint {
+    background: rgba(255, 255, 255, 0.1);
+    border: 2px solid #e63946;
+    border-radius: 15px;
+    padding: 20px 40px;
+    margin: 30px auto;
+    max-width: 400px;
+}
+
+.gesture-hint p {
+    font-size: 2rem;
+    margin-bottom: 10px;
+}
+
+.gesture-desc {
+    font-size: 1rem !important;
+    color: #aaa;
+}
+
+.btn-primary {
+    background: linear-gradient(135deg, #e63946 0%, #c81d25 100%);
+    border: none;
+    color: white;
+    font-size: 1.5rem;
+    padding: 15px 60px;
+    border-radius: 50px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    box-shadow: 0 5px 20px rgba(230, 57, 70, 0.5);
+    margin-top: 20px;
+}
+
+.btn-primary:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 8px 30px rgba(230, 57, 70, 0.7);
+}
+
+/* 游戏界面 */
+#game-screen {
+    background: linear-gradient(to bottom, 
+        #0a0a1a 0%, 
+        #1a1a3a 30%, 
+        #2a1a4a 60%, 
+        #3a2a5a 100%);
+    background-image: 
+        radial-gradient(white 1px, transparent 1px),
+        linear-gradient(to bottom, #0a0a1a 0%, #1a1a3a 30%, #2a1a4a 60%, #3a2a5a 100%);
+    background-size: 50px 50px, 100% 100%;
+}
+
+#video {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    transform: scaleX(-1);
+    opacity: 0.6;
+}
+
+#game-canvas {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 10;
+}
+
+#hand-canvas {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 5;
+    pointer-events: none;
+}
+
+/* UI 层 */
+#ui-layer {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    padding: 20px;
+    z-index: 20;
+    display: flex;
+    justify-content: space-between;
+    pointer-events: none;
+}
+
+#score-display, #time-display {
+    background: rgba(0, 0, 0, 0.7);
+    border: 2px solid #e63946;
+    border-radius: 15px;
+    padding: 15px 25px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+.score-label, .time-label {
+    font-size: 0.9rem;
+    color: #aaa;
+}
+
+#score, #time {
+    font-size: 2.5rem;
+    font-weight: bold;
+    color: #e63946;
+}
+
+#combo-display {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    font-size: 4rem;
+    font-weight: bold;
+    color: #ffd700;
+    text-shadow: 0 0 20px rgba(255, 215, 0, 0.8);
+    animation: comboPopup 0.5s ease-out;
+}
+
+@keyframes comboPopup {
+    0% { transform: translate(-50%, -50%) scale(0.5); opacity: 0; }
+    50% { transform: translate(-50%, -50%) scale(1.2); }
+    100% { transform: translate(-50%, -50%) scale(1); opacity: 1; }
+}
+
+/* 手势状态 */
+#gesture-status {
+    position: absolute;
+    bottom: 30px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(0, 0, 0, 0.7);
+    border: 2px solid #4cc9f0;
+    border-radius: 30px;
+    padding: 10px 30px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    z-index: 20;
+}
+
+#gesture-icon {
+    font-size: 1.8rem;
+}
+
+#gesture-text {
+    font-size: 1.1rem;
+    color: #4cc9f0;
+}
+
+#gesture-status.active {
+    border-color: #00ff88;
+    background: rgba(0, 255, 136, 0.2);
+}
+
+#gesture-status.active #gesture-text {
+    color: #00ff88;
+}
+
+#gesture-status.targeting {
+    border-color: #ff3333;
+    background: rgba(255, 50, 50, 0.2);
+    animation: targetPulse 0.5s infinite;
+}
+
+#gesture-status.targeting #gesture-text {
+    color: #ff3333;
+}
+
+@keyframes targetPulse {
+    0%, 100% { transform: translateX(-50%) scale(1); }
+    50% { transform: translateX(-50%) scale(1.05); }
+}
+
+/* 结束界面 */
+#end-screen {
+    background: rgba(0, 0, 0, 0.9);
+    z-index: 100;
+}
+
+.end-container {
+    text-align: center;
+    padding: 40px;
+}
+
+.end-container h1 {
+    font-size: 3rem;
+    margin-bottom: 40px;
+    color: #e63946;
+}
+
+.final-score, .high-score {
+    margin: 20px 0;
+}
+
+.final-score .label, .high-score .label {
+    display: block;
+    font-size: 1.2rem;
+    color: #aaa;
+    margin-bottom: 10px;
+}
+
+#final-score {
+    font-size: 5rem;
+    font-weight: bold;
+    color: #ffd700;
+    text-shadow: 0 0 30px rgba(255, 215, 0, 0.5);
+}
+
+#high-score {
+    font-size: 2rem;
+    color: #4cc9f0;
+}
+
+/* 蜘蛛丝动画 */
+.web-line {
+    position: absolute;
+    background: linear-gradient(90deg, transparent, #fff, transparent);
+    height: 3px;
+    transform-origin: left center;
+    z-index: 15;
+    pointer-events: none;
+}
+
+/* 怪物击中特效 */
+@keyframes monsterHit {
+    0% { transform: scale(1); opacity: 1; }
+    50% { transform: scale(1.5); }
+    100% { transform: scale(0); opacity: 0; }
+}
+
+/* 得分飘字 */
+.score-popup {
+    position: absolute;
+    font-size: 2rem;
+    font-weight: bold;
+    color: #ffd700;
+    text-shadow: 0 0 10px rgba(255, 215, 0, 0.8);
+    animation: scoreFloat 1s ease-out forwards;
+    pointer-events: none;
+    z-index: 25;
+}
+
+@keyframes scoreFloat {
+    0% { transform: translateY(0) scale(1); opacity: 1; }
+    100% { transform: translateY(-80px) scale(1.5); opacity: 0; }
+}
