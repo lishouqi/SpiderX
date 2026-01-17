@@ -1,0 +1,11 @@
+{
+  "name": "spiderx-merged",
+  "version": "2.0.0",
+  "description": "蜘蛛侠捕怪大作战 - 融合版 (AI城市背景 + 钢铁侠模式 + 炸弹系统)",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "author": "",
+  "license": "MIT"
+}

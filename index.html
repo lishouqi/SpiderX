@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>蜘蛛侠捕怪大作战 - 融合版</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<div class="game-container">
+    <!-- 开始界面 - 极简黑色风格 + 手势解锁 -->
+    <div id="start-screen" class="screen">
+        <!-- 解锁前的界面 -->
+        <div id="unlock-view" class="unlock-view">
+            <h1 class="main-title">SPIDERX</h1>
+            <div class="unlock-hint">
+                <div class="gesture-demo">🤟</div>
+                <p class="unlock-text">做出蜘蛛侠手势解锁</p>
+                <p class="gesture-detail">中指+无名指弯曲，其他伸直</p>
+            </div>
+            <div id="unlock-status" class="unlock-status">
+                <span class="status-dot"></span>
+                <span class="status-text">等待手势...</span>
+            </div>
+        </div>
+        
+        <!-- 摄像头预览（用于手势检测） -->
+        <video id="unlock-video" class="unlock-video" autoplay playsinline></video>
+        <canvas id="unlock-canvas" class="unlock-canvas"></canvas>
+    </div>
+
+    <!-- 故事引入界面 -->
+    <div id="story-screen" class="screen hidden">
+        <div class="story-container">
+            <div class="story-city-name" id="story-city-name">上海 · 迷雾幻影</div>
+            <div class="story-text" id="story-text">黄浦江上升起诡异浓雾，雾中藏着吞噬光源的"影魔"...</div>
+            <div class="story-landmark">
+                <span class="story-landmark-label">第一站</span>
+                <span class="story-landmark-name" id="story-landmark-name">南京路迷途</span>
+            </div>
+            <div class="story-loading" id="story-loading">
+                <div class="story-spinner"></div>
+                <span>正在生成城市背景...</span>
+            </div>
+            <div class="story-countdown hidden" id="story-countdown">
+                <span class="countdown-number" id="countdown-number">3</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- 游戏界面 -->
+    <div id="game-screen" class="screen hidden">
+        <!-- AI 生成的背景图 -->
+        <div id="ai-background">
+            <img id="ai-bg-image" src="" alt="background">
+            <div id="bg-loading-indicator" class="hidden">
+            </div>
+        </div>
+        
+        <!-- 摄像头视频（镜像显示） -->
+        <video id="video" autoplay playsinline></video>
+        
+        <!-- 游戏画布 -->
+        <canvas id="game-canvas"></canvas>
+        
+        <!-- 手势检测画布 -->
+        <canvas id="hand-canvas"></canvas>
+        
+        <!-- UI 层 -->
+        <div id="ui-layer">
+            <div id="landmark-display">
+                <span id="landmark-name">南京路迷途</span>
+                <div id="landmark-progress">
+                    <span class="dot active"></span>
+                    <span class="dot"></span>
+                    <span class="dot"></span>
+                </div>
+            </div>
+            <div id="score-display">
+                <span class="score-label">得分</span>
+                <span id="score">0</span>
+            </div>
+            <div id="combo-display" class="hidden">
+                <span id="combo">x2</span>
+            </div>
+            <div id="time-display">
+                <span class="time-label">时间</span>
+                <span id="time">60</span>
+            </div>
+        </div>
+
+        <!-- 手势状态提示 -->
+        <div id="gesture-status">
+            <span id="gesture-icon">✋</span>
+            <span id="gesture-text">等待手势...</span>
+        </div>
+    </div>
+
+    <!-- 结束界面 - 并行排版 + 星级评分 -->
+    <div id="end-screen" class="screen hidden">
+        <div class="end-container-new">
+            <div id="game-over-reason" class="game-over-reason float-anim">时间到！</div>
+            <h1 class="end-title pulse-anim">游戏结束</h1>
+            
+            <div class="end-content">
+                <!-- 左侧：分数信息 -->
+                <div class="end-left">
+                    <div id="city-complete-info" class="city-complete-info">
+                        <span id="completed-city-name">上海 · 迷雾幻影</span>
+                        <span id="city-count">已完成 1 个城市</span>
+                    </div>
+                    <div id="stars-display" class="stars-display float-anim">
+                        <span class="star empty">☆</span>
+                        <span class="star empty">☆</span>
+                        <span class="star empty">☆</span>
+                    </div>
+                    <div id="score-requirements" class="score-requirements"></div>
+                    <div class="final-score scale-anim">
+                        <span class="label">最终得分</span>
+                        <span id="final-score">0</span>
+                    </div>
+                    <div class="high-score float-anim-slow">
+                        <span class="label">最高记录</span>
+                        <span id="high-score">0</span>
+                    </div>
+                </div>
+                
+                <!-- 右侧：排行榜 -->
+                <div class="end-right">
+                    <div id="leaderboard" class="leaderboard slide-anim"></div>
+                </div>
+            </div>
+            
+            <button id="restart-btn" class="btn-primary pulse-anim">探索下一个城市</button>
+        </div>
+    </div>
+</div><!-- end game-container -->
+
+    <!-- MediaPipe Scripts -->
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js" crossorigin="anonymous"></script>
+    
+    <!-- Game Scripts -->
+    <script src="game.js"></script>
+</body>
+</html>

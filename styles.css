@@ -1,0 +1,999 @@
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background: #000;
+    min-height: 100vh;
+    overflow: hidden;
+    color: white;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+/* 游戏容器 - 固定16:9比例，自适应缩放 */
+.game-container {
+    position: relative;
+    width: 100vw;
+    height: 100vh;
+    max-width: 1280px;
+    max-height: 720px;
+    overflow: hidden;
+    background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+}
+
+@media (min-aspect-ratio: 16/9) {
+    .game-container {
+        width: calc(100vh * 16 / 9);
+        height: 100vh;
+    }
+}
+
+@media (max-aspect-ratio: 16/9) {
+    .game-container {
+        width: 100vw;
+        height: calc(100vw * 9 / 16);
+    }
+}
+
+.screen {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+.hidden {
+    display: none !important;
+}
+
+/* ========== 开始界面 - 极简黑色风格 ========== */
+#start-screen {
+    background: #000;
+    z-index: 100;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+}
+
+.unlock-view {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    padding: 40px;
+    z-index: 10;
+}
+
+.main-title {
+    font-size: 5rem;
+    font-weight: 100;
+    letter-spacing: 20px;
+    color: #fff;
+    margin-bottom: 60px;
+    text-shadow: 0 0 30px rgba(255, 255, 255, 0.3);
+    animation: titleGlow 3s ease-in-out infinite;
+}
+
+@keyframes titleGlow {
+    0%, 100% { text-shadow: 0 0 30px rgba(255, 255, 255, 0.3); }
+    50% { text-shadow: 0 0 50px rgba(255, 255, 255, 0.6), 0 0 80px rgba(230, 57, 70, 0.4); }
+}
+
+.unlock-hint {
+    margin-bottom: 40px;
+}
+
+.gesture-demo {
+    font-size: 5rem;
+    margin-bottom: 20px;
+    animation: gestureFloat 2s ease-in-out infinite;
+}
+
+@keyframes gestureFloat {
+    0%, 100% { transform: translateY(0) rotate(-5deg); }
+    50% { transform: translateY(-10px) rotate(5deg); }
+}
+
+.unlock-text {
+    font-size: 1.3rem;
+    color: #888;
+    margin-bottom: 10px;
+}
+
+.gesture-detail {
+    font-size: 0.9rem;
+    color: #555;
+}
+
+.unlock-status {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 15px 30px;
+    border: 1px solid #333;
+    border-radius: 30px;
+}
+
+.status-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: #555;
+    animation: dotPulse 1.5s ease-in-out infinite;
+}
+
+.unlock-status.detected .status-dot {
+    background: #00ff88;
+    box-shadow: 0 0 15px #00ff88;
+}
+
+@keyframes dotPulse {
+    0%, 100% { opacity: 0.5; }
+    50% { opacity: 1; }
+}
+
+.status-text {
+    color: #666;
+    font-size: 0.95rem;
+}
+
+.unlock-video, .unlock-canvas {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    transform: scaleX(-1);
+    opacity: 0.25;
+    z-index: 1;
+}
+
+.unlock-canvas {
+    z-index: 2;
+    opacity: 0.5;
+}
+
+/* ========== 故事引入界面 ========== */
+#story-screen {
+    background: #000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 95;
+}
+
+.story-container {
+    text-align: center;
+    max-width: 600px;
+    padding: 40px;
+    animation: storyFadeIn 1s ease-out;
+}
+
+@keyframes storyFadeIn {
+    0% { opacity: 0; transform: translateY(30px); }
+    100% { opacity: 1; transform: translateY(0); }
+}
+
+.story-city-name {
+    font-size: 2.5rem;
+    font-weight: bold;
+    color: #fff;
+    margin-bottom: 30px;
+    text-shadow: 0 0 30px rgba(78, 205, 196, 0.8);
+    animation: cityNameGlow 2s infinite alternate;
+}
+
+@keyframes cityNameGlow {
+    0% { text-shadow: 0 0 20px rgba(78, 205, 196, 0.5); }
+    100% { text-shadow: 0 0 40px rgba(78, 205, 196, 1); }
+}
+
+.story-text {
+    font-size: 1.3rem;
+    color: #ccc;
+    line-height: 1.8;
+    margin-bottom: 40px;
+    min-height: 80px;
+}
+
+.story-landmark {
+    margin-bottom: 50px;
+}
+
+.story-landmark-label {
+    display: block;
+    font-size: 0.9rem;
+    color: #888;
+    margin-bottom: 8px;
+    text-transform: uppercase;
+    letter-spacing: 3px;
+}
+
+.story-landmark-name {
+    display: block;
+    font-size: 1.8rem;
+    color: #4ecdc4;
+    font-weight: bold;
+}
+
+.story-loading {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 15px;
+    color: #888;
+    font-size: 1rem;
+}
+
+.story-loading.hidden {
+    display: none;
+}
+
+.story-spinner {
+    width: 24px;
+    height: 24px;
+    border: 3px solid rgba(78, 205, 196, 0.3);
+    border-top-color: #4ecdc4;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    to { transform: rotate(360deg); }
+}
+
+.story-countdown {
+    margin-top: 30px;
+}
+
+.story-countdown.hidden {
+    display: none;
+}
+
+.countdown-number {
+    font-size: 5rem;
+    font-weight: bold;
+    color: #4ecdc4;
+    text-shadow: 0 0 30px rgba(78, 205, 196, 0.8);
+    animation: countdownPulse 1s ease-in-out;
+}
+
+@keyframes countdownPulse {
+    0% { transform: scale(1.5); opacity: 0; }
+    50% { transform: scale(1); opacity: 1; }
+    100% { transform: scale(0.8); opacity: 0.5; }
+}
+
+/* ========== 游戏界面 ========== */
+#game-screen {
+    background: linear-gradient(to bottom, 
+        #0a0a1a 0%, 
+        #1a1a3a 30%, 
+        #2a1a4a 60%, 
+        #3a2a5a 100%);
+}
+
+/* AI 生成的背景图 */
+#ai-background {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 1;
+    overflow: hidden;
+}
+
+#ai-bg-image {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    opacity: 0;
+    transition: opacity 1s ease-in-out;
+}
+
+#ai-bg-image.loaded {
+    opacity: 1;
+}
+
+#bg-loading-indicator {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background: rgba(0, 0, 0, 0.7);
+    padding: 20px 40px;
+    border-radius: 20px;
+    color: #fff;
+    font-size: 1.2rem;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    z-index: 5;
+    animation: pulse 1.5s infinite;
+}
+
+#bg-loading-indicator.hidden {
+    display: none;
+}
+
+@keyframes pulse {
+    0%, 100% { transform: translate(-50%, -50%) scale(1); }
+    50% { transform: translate(-50%, -50%) scale(1.05); }
+}
+
+#video {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    transform: scaleX(-1);
+    opacity: 0.4;
+    z-index: 2;
+}
+
+#game-canvas {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 10;
+}
+
+#hand-canvas {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 5;
+    pointer-events: none;
+}
+
+/* 地标显示 */
+#landmark-display {
+    position: absolute;
+    top: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    text-align: center;
+    z-index: 100;
+}
+
+#landmark-name {
+    display: block;
+    font-size: 1.4rem;
+    font-weight: bold;
+    color: #fff;
+    text-shadow: 0 2px 10px rgba(0,0,0,0.8);
+    margin-bottom: 8px;
+    animation: landmarkPulse 0.5s ease-out;
+}
+
+@keyframes landmarkPulse {
+    0% { transform: scale(1.3); opacity: 0; }
+    100% { transform: scale(1); opacity: 1; }
+}
+
+#landmark-progress {
+    display: flex;
+    gap: 8px;
+    justify-content: center;
+}
+
+#landmark-progress .dot {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    background: rgba(255,255,255,0.3);
+    border: 2px solid rgba(255,255,255,0.5);
+    transition: all 0.3s ease;
+}
+
+#landmark-progress .dot.active {
+    background: #4ecdc4;
+    border-color: #4ecdc4;
+    box-shadow: 0 0 10px #4ecdc4;
+}
+
+#landmark-progress .dot.completed {
+    background: #2ecc71;
+    border-color: #2ecc71;
+}
+
+/* UI 层 */
+#ui-layer {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    padding: 20px;
+    z-index: 20;
+    display: flex;
+    justify-content: space-between;
+    pointer-events: none;
+}
+
+#score-display, #time-display {
+    background: rgba(0, 0, 0, 0.7);
+    border: 2px solid #e63946;
+    border-radius: 15px;
+    padding: 15px 25px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+.score-label, .time-label {
+    font-size: 0.9rem;
+    color: #aaa;
+}
+
+#score, #time {
+    font-size: 2.5rem;
+    font-weight: bold;
+    color: #e63946;
+}
+
+#combo-display {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    font-size: 4rem;
+    font-weight: bold;
+    color: #ffd700;
+    text-shadow: 0 0 20px rgba(255, 215, 0, 0.8);
+    animation: comboPopup 0.5s ease-out;
+    z-index: 100;
+}
+
+@keyframes comboPopup {
+    0% { transform: translate(-50%, -50%) scale(0.5); opacity: 0; }
+    50% { transform: translate(-50%, -50%) scale(1.2); }
+    100% { transform: translate(-50%, -50%) scale(1); opacity: 1; }
+}
+
+/* 炸弹/生命显示 */
+#bomb-display {
+    background: rgba(0, 0, 0, 0.7);
+    border: 2px solid #ff6b6b;
+    border-radius: 15px;
+    padding: 10px 20px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+.bomb-label {
+    font-size: 0.9rem;
+    color: #aaa;
+}
+
+.bomb-hearts {
+    display: flex;
+    gap: 5px;
+    font-size: 1.5rem;
+}
+
+.bomb-heart {
+    transition: all 0.3s ease;
+}
+
+.bomb-heart.lost {
+    filter: grayscale(100%);
+    opacity: 0.4;
+    transform: scale(0.8);
+}
+
+/* 手势状态 */
+#gesture-status {
+    position: absolute;
+    bottom: 30px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(0, 0, 0, 0.7);
+    border: 2px solid #4cc9f0;
+    border-radius: 30px;
+    padding: 10px 30px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    z-index: 20;
+}
+
+#gesture-icon {
+    font-size: 1.8rem;
+}
+
+#gesture-text {
+    font-size: 1.1rem;
+    color: #4cc9f0;
+}
+
+#gesture-status.active {
+    border-color: #00ff88;
+    background: rgba(0, 255, 136, 0.2);
+}
+
+#gesture-status.active #gesture-text {
+    color: #00ff88;
+}
+
+/* 钢铁侠模式样式 */
+#gesture-status.iron-man-mode {
+    border-color: #00d4ff;
+    background: rgba(0, 150, 255, 0.2);
+}
+
+#gesture-status.iron-man-mode #gesture-text {
+    color: #00d4ff;
+}
+
+#gesture-status.iron-man-mode.active {
+    border-color: #00ffff;
+    background: rgba(0, 255, 255, 0.3);
+    box-shadow: 0 0 20px rgba(0, 212, 255, 0.5);
+}
+
+#gesture-status.iron-man-mode.active #gesture-text {
+    color: #00ffff;
+}
+
+/* ========== 蜘蛛网动效 ========== */
+.web-catch-effect {
+    position: absolute;
+    transform: translate(-50%, -50%);
+    pointer-events: none;
+    z-index: 100;
+    animation: webCatch 0.6s ease-out forwards;
+}
+
+@keyframes webCatch {
+    0% {
+        transform: translate(-50%, -50%) scale(0.2) rotate(0deg);
+        opacity: 0;
+    }
+    30% {
+        transform: translate(-50%, -50%) scale(1.2) rotate(45deg);
+        opacity: 1;
+    }
+    100% {
+        transform: translate(-50%, -50%) scale(1.5) rotate(90deg);
+        opacity: 0;
+    }
+}
+
+/* 炸弹爆炸特效 */
+.bomb-effect {
+    position: absolute;
+    transform: translate(-50%, -50%);
+    font-size: 80px;
+    pointer-events: none;
+    z-index: 100;
+    animation: bombExplode 0.8s ease-out forwards;
+}
+
+@keyframes bombExplode {
+    0% { transform: translate(-50%, -50%) scale(0.5); opacity: 1; }
+    50% { transform: translate(-50%, -50%) scale(2); opacity: 1; }
+    100% { transform: translate(-50%, -50%) scale(2.5); opacity: 0; }
+}
+
+/* 激光发射特效 */
+.laser-shoot-effect {
+    position: absolute;
+    width: 60px;
+    height: 60px;
+    transform: translate(-50%, -50%);
+    pointer-events: none;
+    z-index: 100;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(0, 212, 255, 0.8) 0%, rgba(0, 150, 255, 0.4) 50%, transparent 70%);
+    animation: laserShoot 0.3s ease-out forwards;
+}
+
+@keyframes laserShoot {
+    0% { transform: translate(-50%, -50%) scale(0.3); opacity: 1; }
+    100% { transform: translate(-50%, -50%) scale(1.5); opacity: 0; }
+}
+
+/* 激光击中特效 */
+.laser-hit-effect {
+    position: absolute;
+    transform: translate(-50%, -50%);
+    font-size: 50px;
+    pointer-events: none;
+    z-index: 100;
+    animation: laserHit 0.4s ease-out forwards;
+    filter: hue-rotate(180deg) saturate(2);
+}
+
+@keyframes laserHit {
+    0% { transform: translate(-50%, -50%) scale(0.5); opacity: 1; }
+    50% { transform: translate(-50%, -50%) scale(1.5); opacity: 1; }
+    100% { transform: translate(-50%, -50%) scale(2); opacity: 0; }
+}
+
+/* 模式切换特效 */
+.mode-switch-effect {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    z-index: 1000;
+    pointer-events: none;
+    animation: modeSwitchIn 0.3s ease-out, modeSwitchOut 0.5s ease-in 1s forwards;
+}
+
+.mode-text {
+    font-size: 3rem;
+    font-weight: bold;
+    padding: 20px 50px;
+    border-radius: 20px;
+    text-shadow: 0 0 20px currentColor;
+}
+
+.mode-text.iron-man {
+    color: #00d4ff;
+    background: rgba(0, 100, 200, 0.3);
+    border: 3px solid #00d4ff;
+    box-shadow: 0 0 40px rgba(0, 212, 255, 0.5), inset 0 0 30px rgba(0, 212, 255, 0.2);
+}
+
+.mode-text.spider-man {
+    color: #e63946;
+    background: rgba(200, 50, 50, 0.3);
+    border: 3px solid #e63946;
+    box-shadow: 0 0 40px rgba(230, 57, 70, 0.5), inset 0 0 30px rgba(230, 57, 70, 0.2);
+}
+
+@keyframes modeSwitchIn {
+    0% { transform: translate(-50%, -50%) scale(0.3); opacity: 0; }
+    100% { transform: translate(-50%, -50%) scale(1); opacity: 1; }
+}
+
+@keyframes modeSwitchOut {
+    0% { transform: translate(-50%, -50%) scale(1); opacity: 1; }
+    100% { transform: translate(-50%, -50%) scale(1.2); opacity: 0; }
+}
+
+/* 地标切换过渡动画 */
+#landmark-transition {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0,0,0,0.8);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.5s ease;
+}
+
+#landmark-transition.active {
+    opacity: 1;
+    pointer-events: auto;
+}
+
+#landmark-transition h2 {
+    font-size: 2rem;
+    color: #4ecdc4;
+    margin-bottom: 10px;
+}
+
+#landmark-transition p {
+    font-size: 1.2rem;
+    color: #fff;
+}
+
+/* 得分飘字 */
+.score-popup {
+    position: absolute;
+    font-size: 2rem;
+    font-weight: bold;
+    color: #ffd700;
+    text-shadow: 0 0 10px rgba(255, 215, 0, 0.8);
+    animation: scoreFloat 1s ease-out forwards;
+    pointer-events: none;
+    z-index: 25;
+}
+
+@keyframes scoreFloat {
+    0% { transform: translateY(0) scale(1); opacity: 1; }
+    100% { transform: translateY(-80px) scale(1.5); opacity: 0; }
+}
+
+/* ========== 结束界面 ========== */
+#end-screen {
+    background: rgba(0, 0, 0, 0.95);
+    z-index: 100;
+}
+
+.end-container-new {
+    text-align: center;
+    padding: 30px;
+    max-width: 900px;
+    width: 90%;
+}
+
+.end-title {
+    font-size: 2.5rem;
+    margin-bottom: 20px;
+    color: #e63946;
+}
+
+.game-over-reason {
+    font-size: 1.5rem;
+    padding: 10px 25px;
+    border-radius: 25px;
+    margin-bottom: 15px;
+    display: inline-block;
+}
+
+.game-over-reason.time {
+    background: rgba(76, 201, 240, 0.2);
+    color: #4cc9f0;
+    border: 2px solid #4cc9f0;
+}
+
+.game-over-reason.bomb {
+    background: rgba(255, 100, 100, 0.2);
+    color: #ff6b6b;
+    border: 2px solid #ff6b6b;
+    animation: bombShake 0.5s ease-in-out;
+}
+
+@keyframes bombShake {
+    0%, 100% { transform: translateX(0); }
+    25% { transform: translateX(-10px); }
+    75% { transform: translateX(10px); }
+}
+
+.city-complete-info {
+    margin-bottom: 15px;
+    padding: 10px 20px;
+    background: rgba(78, 205, 196, 0.2);
+    border: 1px solid #4ecdc4;
+    border-radius: 15px;
+}
+
+.city-complete-info span {
+    display: block;
+}
+
+#completed-city-name {
+    font-size: 1.3rem;
+    color: #4ecdc4;
+    font-weight: bold;
+}
+
+#city-count {
+    font-size: 0.9rem;
+    color: #888;
+    margin-top: 5px;
+}
+
+.end-content {
+    display: flex;
+    justify-content: center;
+    gap: 40px;
+    margin: 30px 0;
+    flex-wrap: wrap;
+}
+
+.end-left {
+    flex: 1;
+    min-width: 280px;
+    max-width: 350px;
+}
+
+.end-right {
+    flex: 1;
+    min-width: 280px;
+    max-width: 380px;
+}
+
+/* 微动效果 */
+.float-anim {
+    animation: floatY 3s ease-in-out infinite;
+}
+
+.float-anim-slow {
+    animation: floatY 4s ease-in-out infinite;
+}
+
+@keyframes floatY {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-8px); }
+}
+
+.pulse-anim {
+    animation: pulseScale 2s ease-in-out infinite;
+}
+
+@keyframes pulseScale {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.02); }
+}
+
+.scale-anim {
+    animation: breathe 2.5s ease-in-out infinite;
+}
+
+@keyframes breathe {
+    0%, 100% { transform: scale(1); opacity: 1; }
+    50% { transform: scale(1.05); opacity: 0.9; }
+}
+
+.slide-anim {
+    animation: slideIn 0.6s ease-out, floatY 4s ease-in-out 0.6s infinite;
+}
+
+@keyframes slideIn {
+    0% { transform: translateX(30px); opacity: 0; }
+    100% { transform: translateX(0); opacity: 1; }
+}
+
+/* 星级显示 */
+.stars-display {
+    font-size: 3rem;
+    margin: 15px 0;
+}
+
+.star {
+    margin: 0 5px;
+    transition: all 0.3s ease;
+}
+
+.star.filled {
+    animation: starPop 0.5s ease-out;
+}
+
+.star.empty {
+    color: #555;
+    font-size: 2.5rem;
+}
+
+@keyframes starPop {
+    0% { transform: scale(0); }
+    50% { transform: scale(1.3); }
+    100% { transform: scale(1); }
+}
+
+/* 分数要求显示 */
+.score-requirements {
+    display: flex;
+    justify-content: center;
+    gap: 20px;
+    margin-bottom: 15px;
+    flex-wrap: wrap;
+}
+
+.score-requirements .req {
+    font-size: 0.9rem;
+    color: #888;
+    padding: 5px 12px;
+    border-radius: 15px;
+    background: rgba(255, 255, 255, 0.1);
+}
+
+.score-requirements .req.achieved {
+    color: #ffd700;
+    background: rgba(255, 215, 0, 0.2);
+    border: 1px solid #ffd700;
+}
+
+.final-score, .high-score {
+    margin: 20px 0;
+}
+
+.final-score .label, .high-score .label {
+    display: block;
+    font-size: 1.2rem;
+    color: #aaa;
+    margin-bottom: 10px;
+}
+
+#final-score {
+    font-size: 5rem;
+    font-weight: bold;
+    color: #ffd700;
+    text-shadow: 0 0 30px rgba(255, 215, 0, 0.5);
+}
+
+#high-score {
+    font-size: 2rem;
+    color: #4cc9f0;
+}
+
+.btn-primary {
+    background: linear-gradient(135deg, #e63946 0%, #c81d25 100%);
+    border: none;
+    color: white;
+    font-size: 1.5rem;
+    padding: 15px 60px;
+    border-radius: 50px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    box-shadow: 0 5px 20px rgba(230, 57, 70, 0.5);
+    margin-top: 20px;
+}
+
+.btn-primary:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 8px 30px rgba(230, 57, 70, 0.7);
+}
+
+/* 排行榜 */
+.leaderboard {
+    margin: 20px auto;
+    max-width: 350px;
+    background: rgba(0, 0, 0, 0.5);
+    border-radius: 15px;
+    padding: 15px;
+    border: 2px solid #4cc9f0;
+}
+
+.leaderboard-title {
+    font-size: 1.3rem;
+    color: #ffd700;
+    margin-bottom: 10px;
+    text-align: center;
+}
+
+.leaderboard-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 10px;
+    border-radius: 8px;
+    margin: 5px 0;
+    background: rgba(255, 255, 255, 0.05);
+}
+
+.leaderboard-row.player-row {
+    background: rgba(230, 57, 70, 0.3);
+    border: 1px solid #e63946;
+}
+
+.leaderboard-row .rank {
+    font-size: 1.2rem;
+    width: 35px;
+    text-align: center;
+}
+
+.leaderboard-row .name {
+    flex: 1;
+    text-align: left;
+    margin-left: 10px;
+    font-size: 0.95rem;
+}
+
+.leaderboard-row .lb-score {
+    font-size: 1rem;
+    color: #ffd700;
+    font-weight: bold;
+}
